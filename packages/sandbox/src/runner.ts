@@ -8,6 +8,7 @@ import {
 export interface RunnerInput {
   readonly runId: string;
   readonly scenarioId: string;
+  readonly scenarioType: ScenarioResult["scenarioType"];
   readonly agentName: ScriptedAgentName;
 }
 
@@ -16,10 +17,13 @@ export interface RunnerOutput {
   readonly replay: ReplayLog;
 }
 
-function createCompletedResult(scenarioId: string): ScenarioResult {
+function createCompletedResult(
+  scenarioId: string,
+  scenarioType: ScenarioResult["scenarioType"]
+): ScenarioResult {
   return {
     scenarioId,
-    scenarioType: "workflow",
+    scenarioType,
     outcome: "passed",
     summary: "Deterministic scripted sandbox run completed."
   };
@@ -41,7 +45,7 @@ export async function* streamScenarioWithScriptedAgent(
 
   yield {
     type: "run.completed",
-    result: createCompletedResult(input.scenarioId)
+    result: createCompletedResult(input.scenarioId, input.scenarioType)
   };
 }
 

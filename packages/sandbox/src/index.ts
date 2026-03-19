@@ -1,7 +1,7 @@
 export { createReplayLog } from "./replay-log.js";
 export type { ReplayLog } from "./replay-log.js";
 
-export { materializeScript, scriptedAgents } from "./scripted-agent.js";
+export { materializeScript } from "./scripted-agent.js";
 export type {
   ScriptedAgentEvent,
   ScriptedAgentName,

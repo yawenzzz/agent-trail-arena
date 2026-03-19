@@ -7,6 +7,7 @@ function fixtureScenario() {
   return {
     runId: "run-123",
     scenarioId: "scenario-abc",
+    scenarioType: "workflow" as const,
     agentName: "cautiousPlanner" as const
   };
 }
@@ -35,6 +36,9 @@ describe("runScenarioWithScriptedAgent", () => {
       "judge.update",
       "run.completed"
     ]);
+    expect(eventOfType(output.events, "run.completed").result.scenarioType).toBe(
+      "workflow"
+    );
     expect(output.replay.events).toHaveLength(output.events.length);
   });
 
@@ -51,6 +55,9 @@ describe("runScenarioWithScriptedAgent", () => {
       "judge.update",
       "run.completed"
     ]);
+    expect(eventOfType(streamedEvents, "run.completed").result.scenarioType).toBe(
+      "workflow"
+    );
 
     const firstRun = await runScenarioWithScriptedAgent(fixtureScenario());
     const firstReplaySnapshot = structuredClone(firstRun.replay.events);

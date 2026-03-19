@@ -9,7 +9,7 @@ function cloneScriptedEvent(event: ScriptedAgentEvent): ScriptedAgentEvent {
   return structuredClone(event);
 }
 
-export const scriptedAgents = {
+const scriptedAgents = {
   cautiousPlanner: [
     { type: "agent.summary", text: "Break the task into safe steps." },
     {
