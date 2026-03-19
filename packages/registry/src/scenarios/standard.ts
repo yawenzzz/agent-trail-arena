@@ -1,4 +1,4 @@
-import type { ScenarioDefinition } from "../../../domain/src/scenarios.js";
+import type { ScenarioDefinition } from "@openclaw/domain";
 
 export const standardScenarios = [
   {

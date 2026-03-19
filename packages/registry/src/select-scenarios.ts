@@ -1,5 +1,5 @@
-import type { TrialProfile } from "../../domain/src/builds.js";
-import type { ScenarioDefinition } from "../../domain/src/scenarios.js";
+import type { TrialProfile } from "@openclaw/domain";
+import type { ScenarioDefinition } from "@openclaw/domain";
 import type { ScenarioRegistry } from "./scenario-registry.js";
 
 export interface SelectScenarioInput {

@@ -56,7 +56,11 @@ importers:
 
   packages/orchestrator: {}
 
-  packages/registry: {}
+  packages/registry:
+    dependencies:
+      '@openclaw/domain':
+        specifier: workspace:*
+        version: link:../domain
 
   packages/sandbox: {}
 

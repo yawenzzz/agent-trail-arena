@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTrialProfile } from "../../domain/src/builds.js";
+import { createTrialProfile } from "@openclaw/domain";
 import { scenarioRegistry } from "./scenario-registry.js";
 import { selectScenarios } from "./select-scenarios.js";
 

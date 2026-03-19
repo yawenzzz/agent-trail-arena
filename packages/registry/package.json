@@ -1,5 +1,8 @@
 {
   "name": "@openclaw/registry",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@openclaw/domain": "workspace:*"
+  }
 }
