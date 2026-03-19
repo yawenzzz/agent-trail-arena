@@ -42,15 +42,30 @@ function hashSeed(input: string): number {
   return hash >>> 0;
 }
 
+function assertRegistryVersionMatches(
+  profile: TrialProfile,
+  registry: ScenarioRegistry
+): void {
+  if (profile.scenarioRegistryVersion !== registry.version) {
+    throw new Error(
+      `scenarioRegistryVersion mismatch: profile=${profile.scenarioRegistryVersion} registry=${registry.version}`
+    );
+  }
+}
+
 export function rankScenarios(
   registry: ScenarioRegistry,
   profile: TrialProfile
 ): readonly ScenarioDefinition[] {
+  assertRegistryVersionMatches(profile, registry);
+
   return [...registry.scenarios]
     .map((scenario) => ({
       scenario,
       score: scoreScenario(scenario, profile),
-      tieBreaker: hashSeed(`${profile.seed}:${profile.profileId}:${scenario.scenarioId}`)
+      tieBreaker: hashSeed(
+        `${profile.seed}:${profile.buildSignature}:${scenario.scenarioId}`
+      )
     }))
     .sort(
       (left, right) =>
