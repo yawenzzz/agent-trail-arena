@@ -8,5 +8,8 @@ export type {
   ScriptedAgentScript
 } from "./scripted-agent.js";
 
-export { runScenarioWithScriptedAgent } from "./runner.js";
+export {
+  runScenarioWithScriptedAgent,
+  streamScenarioWithScriptedAgent
+} from "./runner.js";
 export type { RunnerInput, RunnerOutput } from "./runner.js";

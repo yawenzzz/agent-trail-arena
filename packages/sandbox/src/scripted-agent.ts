@@ -5,6 +5,10 @@ export type ScriptedAgentEvent =
 
 export type ScriptedAgentScript = readonly ScriptedAgentEvent[];
 
+function cloneScriptedEvent(event: ScriptedAgentEvent): ScriptedAgentEvent {
+  return structuredClone(event);
+}
+
 export const scriptedAgents = {
   cautiousPlanner: [
     { type: "agent.summary", text: "Break the task into safe steps." },
@@ -20,5 +24,5 @@ export const scriptedAgents = {
 export type ScriptedAgentName = keyof typeof scriptedAgents;
 
 export function materializeScript(agentName: ScriptedAgentName): ScriptedAgentEvent[] {
-  return scriptedAgents[agentName].map((event) => ({ ...event }));
+  return scriptedAgents[agentName].map((event) => cloneScriptedEvent(event));
 }

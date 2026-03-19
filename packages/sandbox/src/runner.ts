@@ -25,22 +25,34 @@ function createCompletedResult(scenarioId: string): ScenarioResult {
   };
 }
 
+export async function* streamScenarioWithScriptedAgent(
+  input: RunnerInput
+): AsyncGenerator<RunEvent> {
+  yield {
+    type: "run.started",
+    runId: input.runId,
+    scenarioId: input.scenarioId
+  };
+
+  const scriptedEvents = materializeScript(input.agentName);
+  for (const event of scriptedEvents) {
+    yield event;
+  }
+
+  yield {
+    type: "run.completed",
+    result: createCompletedResult(input.scenarioId)
+  };
+}
+
 export async function runScenarioWithScriptedAgent(
   input: RunnerInput
 ): Promise<RunnerOutput> {
-  const scriptedEvents = materializeScript(input.agentName);
-  const events: RunEvent[] = [
-    {
-      type: "run.started",
-      runId: input.runId,
-      scenarioId: input.scenarioId
-    },
-    ...scriptedEvents,
-    {
-      type: "run.completed",
-      result: createCompletedResult(input.scenarioId)
-    }
-  ];
+  const events: RunEvent[] = [];
+
+  for await (const event of streamScenarioWithScriptedAgent(input)) {
+    events.push(event);
+  }
 
   return {
     events,

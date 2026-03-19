@@ -8,6 +8,6 @@ export interface ReplayLog {
 export function createReplayLog(runId: string, events: readonly RunEvent[]): ReplayLog {
   return {
     runId,
-    events: [...events]
+    events: events.map((event) => structuredClone(event))
   };
 }
