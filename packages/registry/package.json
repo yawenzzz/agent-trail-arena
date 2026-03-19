@@ -1,0 +1,5 @@
+{
+  "name": "@openclaw/registry",
+  "private": true,
+  "type": "module"
+}

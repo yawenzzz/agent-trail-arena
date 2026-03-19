@@ -1,0 +1,5 @@
+{
+  "name": "@openclaw/judge",
+  "private": true,
+  "type": "module"
+}
