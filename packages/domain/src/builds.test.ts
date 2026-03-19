@@ -12,5 +12,13 @@ describe("createTrialProfile", () => {
     });
 
     expect(profile.profileId).toBe("agent-v1:2026-03-19:v1:seed-123");
+    expect(profile.buildSignature).toBe(
+      "planning=high,efficiency=medium,robustness=high"
+    );
+    expect(profile.buildEntries).toEqual([
+      { attribute: "planning", level: "high" },
+      { attribute: "efficiency", level: "medium" },
+      { attribute: "robustness", level: "high" }
+    ]);
   });
 });
