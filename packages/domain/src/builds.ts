@@ -37,11 +37,13 @@ function toBuildEntries(build: DeclaredBuild): BuildAttributeEntry[] {
 }
 
 export function createTrialProfile(input: TrialProfileInput): TrialProfile {
-  const buildEntries = toBuildEntries(input.build);
-  const buildSignature = serializeDeclaredBuild(input.build);
+  const build = { ...input.build };
+  const buildEntries = toBuildEntries(build);
+  const buildSignature = serializeDeclaredBuild(build);
 
   return {
     ...input,
+    build,
     profileId: [
       input.agentVersion,
       input.scenarioRegistryVersion,
