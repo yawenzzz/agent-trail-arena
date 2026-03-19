@@ -14,37 +14,37 @@ importers:
       '@types/node':
         specifier: ^22.15.0
         version: 22.19.15
-      fastify:
-        specifier: ^5.3.0
-        version: 5.8.2
-      next:
-        specifier: ^15.3.0
-        version: 15.5.13(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       playwright:
         specifier: ^1.51.0
         version: 1.58.2
-      react:
-        specifier: ^19.1.0
-        version: 19.2.4
-      react-dom:
-        specifier: ^19.1.0
-        version: 19.2.4(react@19.2.4)
-      tsx:
-        specifier: ^4.19.4
-        version: 4.21.0
       typescript:
         specifier: ^5.8.3
         version: 5.9.3
       vitest:
         specifier: ^3.1.0
         version: 3.2.4(@types/node@22.19.15)(tsx@4.21.0)
-      zod:
-        specifier: ^3.24.3
-        version: 3.25.76
 
-  apps/api: {}
+  apps/api:
+    dependencies:
+      fastify:
+        specifier: ^5.3.0
+        version: 5.8.2
+    devDependencies:
+      tsx:
+        specifier: ^4.19.4
+        version: 4.21.0
 
-  apps/web: {}
+  apps/web:
+    dependencies:
+      next:
+        specifier: ^15.3.0
+        version: 15.5.13(@playwright/test@1.58.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      react:
+        specifier: ^19.1.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.1.0
+        version: 19.2.4(react@19.2.4)
 
   packages/domain: {}
 
@@ -1094,9 +1094,6 @@ packages:
     engines: {node: '>=8'}
     hasBin: true
 
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
-
 snapshots:
 
   '@emnapi/runtime@1.9.0':
@@ -1957,5 +1954,3 @@ snapshots:
     dependencies:
       siginfo: 2.0.0
       stackback: 0.0.2
-
-  zod@3.25.76: {}
