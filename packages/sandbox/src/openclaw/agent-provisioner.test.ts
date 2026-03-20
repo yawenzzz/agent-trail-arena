@@ -3,12 +3,12 @@ import { createOpenClawAgent } from "./agent-provisioner.js";
 import type { ResolvedOpenClawWorkspace } from "./types.js";
 
 function makeResolvedWorkspace(
-  workspaceRoot: string,
+  stateRoot: string,
   agents: ResolvedOpenClawWorkspace["agents"]
 ): ResolvedOpenClawWorkspace {
   return {
-    workspaceRoot,
-    openclawRoot: `${workspaceRoot}/.openclaw`,
+    stateRoot,
+    configPath: `${stateRoot}/openclaw.json`,
     agents
   };
 }
@@ -20,14 +20,14 @@ describe("createOpenClawAgent", () => {
 
     await expect(
       createOpenClawAgent({
-        workspaceRoot: "/tmp/openclaw-workspace",
+        stateRoot: "/tmp/openclaw-state",
         agentName: "prod-agent",
         existingAgents: [
           {
-            agentId: "a1",
+            agentId: "prod-agent",
             agentName: "prod-agent",
-            definitionPath: "/tmp/openclaw-workspace/.openclaw/agents/prod-agent.json",
-            workspaceRoot: "/tmp/openclaw-workspace"
+            definitionPath: "/tmp/openclaw-state/openclaw.json",
+            workspaceRoot: "/tmp/openclaw-state/workspace-prod-agent"
           }
         ],
         runCommand,
@@ -45,7 +45,7 @@ describe("createOpenClawAgent", () => {
 
     await expect(
       createOpenClawAgent({
-        workspaceRoot: "/tmp/openclaw-workspace",
+        stateRoot: "/tmp/openclaw-state",
         agentName: "bad name",
         existingAgents: [],
         runCommand,
@@ -58,21 +58,21 @@ describe("createOpenClawAgent", () => {
   });
 
   it("constructs the add command and refreshes discovery before returning the new descriptor", async () => {
-    const workspaceRoot = "/tmp/openclaw-workspace";
+    const stateRoot = "/tmp/openclaw-state";
     const createdAgent = {
-      agentId: "openclaw_abcd1234ef567890",
+      agentId: "fresh-agent",
       agentName: "fresh-agent",
-      definitionPath: `${workspaceRoot}/.openclaw/agents/fresh-agent.json`,
-      workspaceRoot
+      definitionPath: `${stateRoot}/openclaw.json`,
+      workspaceRoot: `${stateRoot}/workspace-fresh-agent`
     };
     const resolveWorkspace = vi
       .fn()
-      .mockResolvedValueOnce(makeResolvedWorkspace(workspaceRoot, []))
-      .mockResolvedValueOnce(makeResolvedWorkspace(workspaceRoot, [createdAgent]));
+      .mockResolvedValueOnce(makeResolvedWorkspace(stateRoot, []))
+      .mockResolvedValueOnce(makeResolvedWorkspace(stateRoot, [createdAgent]));
     const runCommand = vi.fn().mockResolvedValue(undefined);
 
     const result = await createOpenClawAgent({
-      workspaceRoot: `${workspaceRoot}/../openclaw-workspace`,
+      stateRoot: `${stateRoot}/../openclaw-state`,
       agentName: "fresh-agent",
       runCommand,
       resolveWorkspace
@@ -83,53 +83,56 @@ describe("createOpenClawAgent", () => {
       args: [
         "agents",
         "add",
-        "--workspace",
-        workspaceRoot,
-        "--name",
         "fresh-agent"
-      ]
+      ],
+      env: {
+        OPENCLAW_CONFIG_PATH: `${stateRoot}/openclaw.json`,
+        OPENCLAW_STATE_DIR: stateRoot
+      }
     });
     expect(resolveWorkspace).toHaveBeenCalledTimes(2);
     expect(resolveWorkspace).toHaveBeenNthCalledWith(1, {
-      workspaceRoot
+      stateRoot,
+      configPath: `${stateRoot}/openclaw.json`
     });
     expect(resolveWorkspace).toHaveBeenNthCalledWith(2, {
-      workspaceRoot
+      stateRoot,
+      configPath: `${stateRoot}/openclaw.json`
     });
     expect(result).toBe(createdAgent);
   });
 
   it("surfaces CLI failures with useful command context", async () => {
-    const workspaceRoot = "/tmp/openclaw-workspace";
+    const stateRoot = "/tmp/openclaw-state";
     const runCommand = vi
       .fn()
-      .mockRejectedValue(new Error("OpenClaw command failed (openclaw agents add --workspace /tmp/openclaw-workspace --name broken-agent): missing binary"));
-    const resolveWorkspace = vi.fn().mockResolvedValue(makeResolvedWorkspace(workspaceRoot, []));
+      .mockRejectedValue(new Error("OpenClaw command failed (openclaw agents add broken-agent): missing binary"));
+    const resolveWorkspace = vi.fn().mockResolvedValue(makeResolvedWorkspace(stateRoot, []));
 
     await expect(
       createOpenClawAgent({
-        workspaceRoot,
+        stateRoot,
         agentName: "broken-agent",
         runCommand,
         resolveWorkspace
       })
-    ).rejects.toThrow("OpenClaw command failed (openclaw agents add --workspace /tmp/openclaw-workspace --name broken-agent)");
+    ).rejects.toThrow("OpenClaw command failed (openclaw agents add broken-agent)");
 
     expect(resolveWorkspace).toHaveBeenCalledTimes(1);
   });
 
   it("fails when refreshed discovery does not contain the created agent", async () => {
-    const workspaceRoot = "/tmp/openclaw-workspace";
+    const stateRoot = "/tmp/openclaw-state";
     const resolveWorkspace = vi
       .fn()
-      .mockResolvedValueOnce(makeResolvedWorkspace(workspaceRoot, []))
+      .mockResolvedValueOnce(makeResolvedWorkspace(stateRoot, []))
       .mockResolvedValueOnce(
-        makeResolvedWorkspace(workspaceRoot, [
+        makeResolvedWorkspace(stateRoot, [
           {
-            agentId: "openclaw_existing",
+            agentId: "existing-agent",
             agentName: "existing-agent",
-            definitionPath: `${workspaceRoot}/.openclaw/agents/existing-agent.json`,
-            workspaceRoot
+            definitionPath: `${stateRoot}/openclaw.json`,
+            workspaceRoot: `${stateRoot}/workspace-existing-agent`
           }
         ])
       );
@@ -137,7 +140,7 @@ describe("createOpenClawAgent", () => {
 
     await expect(
       createOpenClawAgent({
-        workspaceRoot,
+        stateRoot,
         agentName: "missing-after-refresh",
         runCommand,
         resolveWorkspace

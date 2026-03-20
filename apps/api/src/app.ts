@@ -18,7 +18,7 @@ interface BuildAppOptions {
   readonly store?: ReturnType<typeof createInMemoryRunStore>;
   readonly openClawConfig?: OpenClawConfig;
   readonly resolveOpenClawWorkspace?: (
-    input: { workspaceRoot: string }
+    input: { stateRoot?: string; configPath?: string }
   ) => Promise<ResolvedOpenClawWorkspace>;
   readonly provisionOpenClawAgent?: (
     input: CreateOpenClawAgentInput

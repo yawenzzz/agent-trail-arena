@@ -8,7 +8,9 @@ import {
 } from "../../../../packages/sandbox/src/index.js";
 
 interface ResolveWorkspaceBody {
-  readonly workspaceRoot: string;
+  readonly stateRoot?: string;
+  readonly configPath?: string;
+  readonly workspaceRoot?: string;
 }
 
 interface ProvisionAgentBody extends ResolveWorkspaceBody {
@@ -32,12 +34,9 @@ function replyWithRouteError(reply: { code: (statusCode: number) => unknown }, e
   const message = error.message;
 
   if (
-    message === "OpenClaw workspace root is required." ||
-    message.startsWith("OpenClaw workspace root does not exist or is not a directory:") ||
-    message.startsWith("Missing .openclaw directory under workspace root:") ||
-    message.startsWith("OpenClaw agents path must be a directory when present:") ||
-    message.startsWith("Malformed OpenClaw agent definition at") ||
-    message.startsWith("Duplicate OpenClaw agent name") ||
+    message.startsWith("OpenClaw state root does not exist or is not a directory:") ||
+    message.startsWith("Malformed OpenClaw config at") ||
+    message.startsWith("Duplicate OpenClaw agent id") ||
     message.startsWith("Invalid OpenClaw agent name") ||
     message.includes("already exists") ||
     message.startsWith("Agent creation did not produce a definition for")
@@ -65,13 +64,26 @@ export function registerOpenClawRoutes(
   const resolveWorkspace = options.resolveWorkspace ?? resolveOpenClawWorkspace;
   const provisionAgent = options.provisionAgent ?? createOpenClawAgent;
 
+  function toResolveInput(body: ResolveWorkspaceBody) {
+    return {
+      stateRoot:
+        typeof body.stateRoot === "string" && body.stateRoot.trim().length > 0
+          ? body.stateRoot
+          : typeof body.workspaceRoot === "string" && body.workspaceRoot.trim().length > 0
+            ? body.workspaceRoot
+            : undefined,
+      configPath:
+        typeof body.configPath === "string" && body.configPath.trim().length > 0
+          ? body.configPath
+          : undefined
+    };
+  }
+
   app.post("/openclaw/resolve", async (request, reply) => {
     const body = request.body as ResolveWorkspaceBody;
 
     try {
-      return await resolveWorkspace({
-        workspaceRoot: body.workspaceRoot
-      });
+      return await resolveWorkspace(toResolveInput(body));
     } catch (error) {
       return replyWithRouteError(reply, error);
     }
@@ -81,11 +93,10 @@ export function registerOpenClawRoutes(
     const body = request.body as ProvisionAgentBody;
 
     try {
-      const workspace = await resolveWorkspace({
-        workspaceRoot: body.workspaceRoot
-      });
+      const resolveInput = toResolveInput(body);
+      const workspace = await resolveWorkspace(resolveInput);
       const agent = await provisionAgent({
-        workspaceRoot: body.workspaceRoot,
+        ...resolveInput,
         agentName: body.agentName,
         existingAgents: workspace.agents,
         runCommand: executeOpenClawCommand,

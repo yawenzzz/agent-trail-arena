@@ -51,7 +51,8 @@ export interface ReplayResponse {
 }
 
 export async function resolveOpenClawWorkspace(input: {
-  readonly workspaceRoot: string;
+  readonly stateRoot?: string;
+  readonly configPath?: string;
 }): Promise<ResolvedOpenClawWorkspace> {
   const response = await fetch(`${API_BASE_URL}/openclaw/resolve`, {
     method: "POST",
@@ -66,7 +67,7 @@ export async function resolveOpenClawWorkspace(input: {
     throw new Error(
       await readErrorMessage(
         response,
-        `Failed to resolve OpenClaw workspace: ${response.status}`
+        `Failed to resolve OpenClaw state: ${response.status}`
       )
     );
   }
@@ -75,7 +76,8 @@ export async function resolveOpenClawWorkspace(input: {
 }
 
 export async function provisionOpenClawAgent(input: {
-  readonly workspaceRoot: string;
+  readonly stateRoot?: string;
+  readonly configPath?: string;
   readonly agentName: string;
 }): Promise<OpenClawAgentDescriptor> {
   const response = await fetch(`${API_BASE_URL}/openclaw/provision`, {

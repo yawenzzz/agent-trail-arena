@@ -79,7 +79,7 @@ export function createRunRequest(
 
 export function BuildProfileForm() {
   const [allocation, setAllocation] = useState<BuildAllocation>(() => createDefaultAllocation());
-  const [workspaceRoot, setWorkspaceRoot] = useState("");
+  const [stateRoot, setStateRoot] = useState("");
   const [agents, setAgents] = useState<readonly OpenClawAgentDescriptor[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [createAgentName, setCreateAgentName] = useState("trial-agent");
@@ -99,10 +99,10 @@ export function BuildProfileForm() {
 
     try {
       const resolved = await resolveOpenClawWorkspace({
-        workspaceRoot
+        stateRoot
       });
 
-      setWorkspaceRoot(resolved.workspaceRoot);
+      setStateRoot(resolved.stateRoot);
       setAgents(resolved.agents);
       setSelectedAgentId("");
     } catch (resolutionError) {
@@ -122,7 +122,7 @@ export function BuildProfileForm() {
 
     try {
       const agent = await provisionOpenClawAgent({
-        workspaceRoot,
+        stateRoot,
         agentName: createAgentName
       });
 
@@ -189,8 +189,8 @@ export function BuildProfileForm() {
         error={workspaceError}
         isResolving={isResolving}
         onResolve={handleResolveWorkspace}
-        onWorkspaceRootChange={setWorkspaceRoot}
-        workspaceRoot={workspaceRoot}
+        onStateRootChange={setStateRoot}
+        stateRoot={stateRoot}
       />
 
       <OpenClawAgentPicker

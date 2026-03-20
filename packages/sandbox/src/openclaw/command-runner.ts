@@ -12,7 +12,8 @@ export async function executeOpenClawCommand(
   try {
     await execFileAsync("openclaw", [...input.args], {
       cwd: input.cwd,
-      encoding: "utf8"
+      encoding: "utf8",
+      env: input.env ? { ...process.env, ...input.env } : process.env
     });
   } catch (error) {
     const failure = error as NodeJS.ErrnoException & {

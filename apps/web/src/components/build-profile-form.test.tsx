@@ -10,8 +10,8 @@ describe("BuildProfileForm", () => {
   it("renders the control console and interactive allocation bars", () => {
     const markup = renderToStaticMarkup(<BuildProfileForm />);
 
-    expect(markup).toContain("OpenClaw Workspace");
-    expect(markup).toContain("Load agents");
+    expect(markup).toContain("OpenClaw State");
+    expect(markup).toContain("Load local agents");
     expect(markup).toContain("No local agents found");
     expect(markup).toContain("Start trial");
     expect(markup).toContain("disabled");
@@ -32,7 +32,7 @@ describe("BuildProfileForm", () => {
     const next = handleAllocationChange(current, "planning", 40);
     const request = createRunRequest(next, "agent-v1", {
       kind: "openclaw",
-      workspaceRoot: "/tmp/openclaw-workspace",
+      workspaceRoot: "/tmp/openclaw-state/workspace-agent-1",
       agentId: "agent-1"
     });
 
@@ -46,7 +46,7 @@ describe("BuildProfileForm", () => {
       seed: "seed-123",
       runtime: {
         kind: "openclaw",
-        workspaceRoot: "/tmp/openclaw-workspace",
+        workspaceRoot: "/tmp/openclaw-state/workspace-agent-1",
         agentId: "agent-1"
       }
     });

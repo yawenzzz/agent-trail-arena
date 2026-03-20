@@ -3,15 +3,19 @@ import type {
   OpenClawCommandRunner,
   ResolvedOpenClawWorkspace
 } from "./types.js";
-import { resolve } from "node:path";
 import { executeOpenClawCommand } from "./command-runner.js";
 import {
   resolveOpenClawWorkspace,
   type ResolveOpenClawWorkspaceInput
 } from "./workspace-resolver.js";
+import {
+  resolveOpenClawConfigPath,
+  resolveOpenClawStateRoot
+} from "./path-utils.js";
 
 export interface CreateOpenClawAgentInput {
-  readonly workspaceRoot: string;
+  readonly stateRoot?: string;
+  readonly configPath?: string;
   readonly agentName: string;
   readonly existingAgents?: readonly OpenClawAgentDescriptor[];
   readonly resolveWorkspace?: (
@@ -51,29 +55,28 @@ export async function createOpenClawAgent(
   input: CreateOpenClawAgentInput
 ): Promise<OpenClawAgentDescriptor> {
   assertValidAgentName(input.agentName);
-  const workspaceRoot = resolve(input.workspaceRoot);
+  const stateRoot = resolveOpenClawStateRoot(input.stateRoot);
+  const configPath = resolveOpenClawConfigPath(stateRoot, input.configPath);
 
   const resolveWorkspace = input.resolveWorkspace ?? resolveOpenClawWorkspace;
   const runCommand = input.runCommand ?? executeOpenClawCommand;
 
   const existingAgents =
-    input.existingAgents ?? (await resolveWorkspace({ workspaceRoot })).agents;
+    input.existingAgents ?? (await resolveWorkspace({ stateRoot, configPath })).agents;
 
   assertUniqueAgentName(input.agentName, existingAgents);
 
   await runCommand({
-    args: [
-      "agents",
-      "add",
-      "--workspace",
-      workspaceRoot,
-      "--name",
-      input.agentName
-    ]
+    args: ["agents", "add", input.agentName],
+    env: {
+      OPENCLAW_STATE_DIR: stateRoot,
+      OPENCLAW_CONFIG_PATH: configPath
+    }
   });
 
   const refreshedWorkspace = await resolveWorkspace({
-    workspaceRoot
+    stateRoot,
+    configPath
   });
   const createdAgent = refreshedWorkspace.agents.find(
     (agent) => agent.agentName === input.agentName

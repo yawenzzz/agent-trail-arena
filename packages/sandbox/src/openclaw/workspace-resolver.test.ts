@@ -15,102 +15,137 @@ afterEach(() => {
   }
 });
 
-function makeWorkspace(): string {
-  const workspaceRoot = mkdtempSync(join(tmpdir(), "openclaw-workspace-"));
-  tempDirs.push(workspaceRoot);
-  return workspaceRoot;
+function makeStateRoot(): string {
+  const stateRoot = mkdtempSync(join(tmpdir(), "openclaw-state-"));
+  tempDirs.push(stateRoot);
+  return stateRoot;
 }
 
 describe("resolveOpenClawWorkspace", () => {
-  it("returns stable agent descriptors from a valid workspace", async () => {
-    const workspaceRoot = makeWorkspace();
-    const openclawRoot = join(workspaceRoot, ".openclaw");
-    const agentsRoot = join(openclawRoot, "agents");
+  it("returns configured local agents from the OpenClaw state root", async () => {
+    const stateRoot = makeStateRoot();
+    const configPath = join(stateRoot, "openclaw.json");
 
-    mkdirSync(agentsRoot, { recursive: true });
+    mkdirSync(join(stateRoot, "agents", "work"), { recursive: true });
     writeFileSync(
-      join(agentsRoot, "prod-agent.json"),
-      JSON.stringify({ name: "prod-agent" }, null, 2)
+      configPath,
+      JSON.stringify(
+        {
+          agents: {
+            defaults: {
+              workspace: "~/trial-default-workspace"
+            },
+            list: [
+              {
+                id: "work",
+                name: "Work Agent",
+                workspace: "~/trial-work-agent"
+              }
+            ]
+          }
+        },
+        null,
+        2
+      )
     );
 
-    const result = await resolveOpenClawWorkspace({ workspaceRoot });
+    const result = await resolveOpenClawWorkspace({ stateRoot });
 
-    expect(result.workspaceRoot).toBe(workspaceRoot);
-    expect(result.openclawRoot).toBe(openclawRoot);
-    expect(result.agents).toHaveLength(1);
-    expect(result.agents[0]).toMatchObject({
-      agentName: "prod-agent",
-      definitionPath: join(agentsRoot, "prod-agent.json"),
-      workspaceRoot
+    expect(result.stateRoot).toBe(stateRoot);
+    expect(result.configPath).toBe(configPath);
+    expect(result.agents).toEqual([
+      {
+        agentId: "work",
+        agentName: "Work Agent",
+        definitionPath: configPath,
+        workspaceRoot: "/Users/yawen.zheng/trial-work-agent"
+      }
+    ]);
+  });
+
+  it("returns the implicit main agent when no multi-agent config exists", async () => {
+    const stateRoot = makeStateRoot();
+
+    const result = await resolveOpenClawWorkspace({ stateRoot });
+
+    expect(result).toEqual({
+      stateRoot,
+      configPath: join(stateRoot, "openclaw.json"),
+      agents: [
+        {
+          agentId: "main",
+          agentName: "main",
+          definitionPath: join(stateRoot, "openclaw.json"),
+          workspaceRoot: join(stateRoot, "workspace")
+        }
+      ]
     });
-    expect(result.agents[0].agentId).toMatch(/^openclaw_[a-f0-9]{16}$/);
   });
 
-  it("rejects workspaces without .openclaw", async () => {
-    const workspaceRoot = makeWorkspace();
-
-    await expect(resolveOpenClawWorkspace({ workspaceRoot })).rejects.toThrow(
-      `Missing .openclaw directory under workspace root: ${workspaceRoot}`
+  it("rejects state roots that do not exist", async () => {
+    await expect(
+      resolveOpenClawWorkspace({ stateRoot: "/tmp/openclaw-state-missing" })
+    ).rejects.toThrow(
+      "OpenClaw state root does not exist or is not a directory: /tmp/openclaw-state-missing"
     );
   });
 
-  it("rejects malformed agent definitions", async () => {
-    const workspaceRoot = makeWorkspace();
-    const openclawRoot = join(workspaceRoot, ".openclaw");
-    const agentsRoot = join(openclawRoot, "agents");
+  it("rejects malformed OpenClaw config", async () => {
+    const stateRoot = makeStateRoot();
+    const configPath = join(stateRoot, "openclaw.json");
+    writeFileSync(configPath, "{ broken json");
 
-    mkdirSync(agentsRoot, { recursive: true });
-    writeFileSync(join(agentsRoot, "broken.json"), "{not-json");
-
-    await expect(resolveOpenClawWorkspace({ workspaceRoot })).rejects.toThrow(
-      `Malformed OpenClaw agent definition at ${join(agentsRoot, "broken.json")}`
+    await expect(resolveOpenClawWorkspace({ stateRoot })).rejects.toThrow(
+      `Malformed OpenClaw config at ${configPath}`
     );
   });
 
-  it("rejects definitions without a string name", async () => {
-    const workspaceRoot = makeWorkspace();
-    const agentsRoot = join(workspaceRoot, ".openclaw", "agents");
+  it("rejects duplicate configured agent ids", async () => {
+    const stateRoot = makeStateRoot();
+    const configPath = join(stateRoot, "openclaw.json");
 
-    mkdirSync(agentsRoot, { recursive: true });
-    writeFileSync(join(agentsRoot, "missing-name.json"), JSON.stringify({ prompt: "hi" }, null, 2));
-
-    await expect(resolveOpenClawWorkspace({ workspaceRoot })).rejects.toThrow(
-      `Malformed OpenClaw agent definition at ${join(agentsRoot, "missing-name.json")}: missing string name`
-    );
-  });
-
-  it("rejects duplicate discovered agent names", async () => {
-    const workspaceRoot = makeWorkspace();
-    const agentsRoot = join(workspaceRoot, ".openclaw", "agents");
-
-    mkdirSync(join(agentsRoot, "nested"), { recursive: true });
-    writeFileSync(join(agentsRoot, "one.json"), JSON.stringify({ name: "dup-agent" }, null, 2));
     writeFileSync(
-      join(agentsRoot, "nested", "two.json"),
-      JSON.stringify({ name: "dup-agent" }, null, 2)
+      configPath,
+      JSON.stringify(
+        {
+          agents: {
+            list: [
+              { id: "dup-agent", workspace: "~/workspace-a" },
+              { id: "dup-agent", workspace: "~/workspace-b" }
+            ]
+          }
+        },
+        null,
+        2
+      )
     );
 
-    await expect(resolveOpenClawWorkspace({ workspaceRoot })).rejects.toThrow(
-      `Duplicate OpenClaw agent name "dup-agent" found in workspace ${workspaceRoot}`
+    await expect(resolveOpenClawWorkspace({ stateRoot })).rejects.toThrow(
+      `Duplicate OpenClaw agent id "dup-agent" found in config ${configPath}`
     );
   });
 
-  it("keeps agent identifiers stable across repeated discovery", async () => {
-    const workspaceRoot = makeWorkspace();
-    const openclawRoot = join(workspaceRoot, ".openclaw");
-    const agentsRoot = join(openclawRoot, "agents");
+  it("keeps configured agent identifiers stable across repeated discovery", async () => {
+    const stateRoot = makeStateRoot();
+    const configPath = join(stateRoot, "openclaw.json");
 
-    mkdirSync(agentsRoot, { recursive: true });
-    const definitionPath = join(agentsRoot, "stable-agent.json");
-    writeFileSync(definitionPath, JSON.stringify({ name: "stable-agent" }, null, 2));
+    writeFileSync(
+      configPath,
+      JSON.stringify(
+        {
+          agents: {
+            list: [{ id: "stable-agent", workspace: "~/stable-workspace" }]
+          }
+        },
+        null,
+        2
+      )
+    );
 
-    const first = await resolveOpenClawWorkspace({ workspaceRoot });
-    const second = await resolveOpenClawWorkspace({ workspaceRoot });
+    const first = await resolveOpenClawWorkspace({ stateRoot });
+    const second = await resolveOpenClawWorkspace({ stateRoot });
 
-    expect(first.agents[0].agentId).toBe(second.agents[0].agentId);
-    expect(first.agents[0]).toMatchObject({
-      agentName: "stable-agent",
-      definitionPath
-    });
+    expect(first.agents[0].agentId).toBe("stable-agent");
+    expect(first.agents[0]).toEqual(second.agents[0]);
   });
 });

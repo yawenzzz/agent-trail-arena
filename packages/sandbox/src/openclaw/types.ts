@@ -6,17 +6,17 @@ export interface OpenClawAgentDescriptor {
 }
 
 export interface ResolvedOpenClawWorkspace {
-  readonly workspaceRoot: string;
-  readonly openclawRoot: string;
+  readonly stateRoot: string;
+  readonly configPath: string;
   readonly agents: readonly OpenClawAgentDescriptor[];
 }
 
 export interface OpenClawCommandInput {
   readonly args: readonly string[];
   readonly cwd?: string;
+  readonly env?: NodeJS.ProcessEnv;
 }
 
 export type OpenClawCommandRunner = (
   input: OpenClawCommandInput
 ) => Promise<void>;
-

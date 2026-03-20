@@ -87,8 +87,8 @@ export interface OpenClawAgentDescriptor {
 }
 
 export interface ResolvedOpenClawWorkspace {
-  readonly workspaceRoot: string;
-  readonly openclawRoot: string;
+  readonly stateRoot: string;
+  readonly configPath: string;
   readonly agents: readonly OpenClawAgentDescriptor[];
 }
 

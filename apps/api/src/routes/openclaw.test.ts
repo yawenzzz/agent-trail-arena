@@ -2,31 +2,31 @@ import { describe, expect, it, vi } from "vitest";
 import { buildApp } from "../app.js";
 
 describe("openclaw routes", () => {
-  it("resolves a workspace and provisions a missing agent", async () => {
+  it("resolves local agents from the OpenClaw state dir and provisions a missing agent", async () => {
     const resolveWorkspace = vi
       .fn()
       .mockResolvedValueOnce({
-        workspaceRoot: "/tmp/openclaw-workspace",
-        openclawRoot: "/tmp/openclaw-workspace/.openclaw",
+        stateRoot: "/tmp/openclaw-state",
+        configPath: "/tmp/openclaw-state/openclaw.json",
         agents: [
           {
-            agentId: "agent-1",
+            agentId: "existing-agent",
             agentName: "existing-agent",
-            definitionPath: "/tmp/openclaw-workspace/.openclaw/agents/existing-agent.json",
-            workspaceRoot: "/tmp/openclaw-workspace"
+            definitionPath: "/tmp/openclaw-state/openclaw.json",
+            workspaceRoot: "/tmp/openclaw-state/workspace-existing-agent"
           }
         ]
       })
       .mockResolvedValueOnce({
-        workspaceRoot: "/tmp/openclaw-workspace",
-        openclawRoot: "/tmp/openclaw-workspace/.openclaw",
+        stateRoot: "/tmp/openclaw-state",
+        configPath: "/tmp/openclaw-state/openclaw.json",
         agents: []
       });
     const provisionAgent = vi.fn().mockResolvedValue({
-      agentId: "agent-2",
+      agentId: "fresh-agent",
       agentName: "fresh-agent",
-      definitionPath: "/tmp/openclaw-workspace/.openclaw/agents/fresh-agent.json",
-      workspaceRoot: "/tmp/openclaw-workspace"
+      definitionPath: "/tmp/openclaw-state/openclaw.json",
+      workspaceRoot: "/tmp/openclaw-state/workspace-fresh-agent"
     });
 
     const app = buildApp({
@@ -38,7 +38,7 @@ describe("openclaw routes", () => {
       method: "POST",
       url: "/openclaw/resolve",
       payload: {
-        workspaceRoot: "/tmp/openclaw-workspace"
+        stateRoot: "/tmp/openclaw-state"
       }
     });
 
@@ -49,7 +49,7 @@ describe("openclaw routes", () => {
       method: "POST",
       url: "/openclaw/provision",
       payload: {
-        workspaceRoot: "/tmp/openclaw-workspace",
+        stateRoot: "/tmp/openclaw-state",
         agentName: "fresh-agent"
       }
     });
@@ -57,15 +57,15 @@ describe("openclaw routes", () => {
     expect(provisionResponse.statusCode).toBe(201);
     expect(provisionResponse.json()).toEqual({
       agent: {
-        agentId: "agent-2",
+        agentId: "fresh-agent",
         agentName: "fresh-agent",
-        definitionPath: "/tmp/openclaw-workspace/.openclaw/agents/fresh-agent.json",
-        workspaceRoot: "/tmp/openclaw-workspace"
+        definitionPath: "/tmp/openclaw-state/openclaw.json",
+        workspaceRoot: "/tmp/openclaw-state/workspace-fresh-agent"
       }
     });
     expect(provisionAgent).toHaveBeenCalledWith(
       expect.objectContaining({
-        workspaceRoot: "/tmp/openclaw-workspace",
+        stateRoot: "/tmp/openclaw-state",
         agentName: "fresh-agent",
         existingAgents: []
       })
@@ -74,13 +74,13 @@ describe("openclaw routes", () => {
     await app.close();
   });
 
-  it("returns a user-facing 400 when the workspace path is invalid", async () => {
+  it("returns a user-facing 400 when the state dir is invalid", async () => {
     const app = buildApp({
       resolveOpenClawWorkspace: vi
         .fn()
         .mockRejectedValue(
           new Error(
-            "Missing .openclaw directory under workspace root: /tmp/openclaw-workspace"
+            "OpenClaw state root does not exist or is not a directory: /tmp/openclaw-state"
           )
         )
     });
@@ -89,13 +89,13 @@ describe("openclaw routes", () => {
       method: "POST",
       url: "/openclaw/resolve",
       payload: {
-        workspaceRoot: "/tmp/openclaw-workspace"
+        stateRoot: "/tmp/openclaw-state"
       }
     });
 
     expect(response.statusCode).toBe(400);
     expect(response.json()).toEqual({
-      message: "Missing .openclaw directory under workspace root: /tmp/openclaw-workspace"
+      message: "OpenClaw state root does not exist or is not a directory: /tmp/openclaw-state"
     });
 
     await app.close();
