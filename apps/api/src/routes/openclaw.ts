@@ -36,6 +36,7 @@ function replyWithRouteError(reply: { code: (statusCode: number) => unknown }, e
   if (
     message.startsWith("OpenClaw state root does not exist or is not a directory:") ||
     message.startsWith("Malformed OpenClaw config at") ||
+    message.startsWith("Malformed OpenClaw agent discovery for") ||
     message.startsWith("Duplicate OpenClaw agent id") ||
     message.startsWith("Invalid OpenClaw agent name") ||
     message.includes("already exists") ||

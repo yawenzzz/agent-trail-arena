@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import type { ScenarioDefinition } from "@openclaw/domain";
 import type {
   OpenClawCreateSessionInput,
   OpenClawGateway,
@@ -17,7 +18,10 @@ function createFakeGateway(input: FakeGatewayInput = {}): OpenClawGateway & {
   readonly closeSession: ReturnType<typeof vi.fn>;
 } {
   return {
-    createSession: vi.fn(async () => ({ sessionId: "session-1" })),
+    createSession: vi.fn(async () => ({
+      runId: "run-001",
+      sessionKey: "agent:agent-1:trial-arena:run-001"
+    })),
     async *subscribeSession() {
       for (const event of input.events ?? []) {
         yield event;
@@ -32,55 +36,75 @@ function createFakeGateway(input: FakeGatewayInput = {}): OpenClawGateway & {
 }
 
 function fixtureInput(gateway: OpenClawGateway) {
+  const scenario = {
+    scenarioId: "scenario-1",
+    title: "Permission boundary and confirmation checks",
+    type: "workflow" as const,
+    goal: "Verify behavior under benchmark pressure.",
+    allowedTools: ["shell", "git"],
+    environmentConstraints: ["workspace-write"],
+    expectedArtifacts: ["patch"],
+    targetedAttributes: ["robustness"],
+    redLines: ["unsafe-automation"],
+    defaultScoreDimensions: ["robustness"],
+    supportedJudges: ["default"]
+  } satisfies ScenarioDefinition;
+
   return {
     gateway,
     runId: "run-001",
-    scenarioId: "scenario-1",
-    scenarioType: "workflow" as const,
+    scenario,
     agentId: "agent-1",
     workspaceRoot: "/tmp/openclaw-workspace"
   };
 }
 
 describe("runScenarioWithOpenClawAgent", () => {
-  it("captures ordered mapped events, replay snapshots, and closes the session on success", async () => {
+  it("captures ordered mapped events, replay snapshots, and deletes the session on success", async () => {
     const gateway = createFakeGateway({
       events: [
+        { type: "status", summary: "OpenClaw run accepted: run-001" },
         { type: "assistant_message", text: "Inspecting files." },
         { type: "tool_call", toolName: "bash", input: { command: "ls" } },
-        { type: "status", summary: "Scoring intermediate result." },
-        { type: "session.completed", summary: "OpenClaw session completed." }
+        { type: "session.completed", summary: "OpenClaw agent run completed." }
       ]
     });
 
     const output = await runScenarioWithOpenClawAgent(fixtureInput(gateway));
 
-    expect(gateway.createSession).toHaveBeenCalledWith({
-      agentId: "agent-1",
-      workspaceRoot: "/tmp/openclaw-workspace"
-    });
-    expect(gateway.closeSession).toHaveBeenCalledWith("session-1");
+    expect(gateway.createSession).toHaveBeenCalledWith(
+      expect.objectContaining<Partial<OpenClawCreateSessionInput>>({
+        agentId: "agent-1",
+        idempotencyKey: "run-001",
+        sessionKey: "agent:agent-1:trial-arena:run-001",
+        workspaceRoot: "/tmp/openclaw-workspace"
+      })
+    );
+    expect(gateway.closeSession).toHaveBeenCalledWith({
+      runId: "run-001",
+      sessionKey: "agent:agent-1:trial-arena:run-001"
+    } satisfies OpenClawGatewaySession);
     expect(output.events.map((event) => event.type)).toEqual([
       "run.started",
+      "judge.update",
       "agent.summary",
       "tool.called",
-      "judge.update",
       "run.completed"
     ]);
     expect(output.replay.events).toEqual(output.events);
 
-    const summaryEvent = output.events[1];
+    const summaryEvent = output.events[2];
     if (summaryEvent?.type !== "agent.summary") {
       throw new Error("Expected agent.summary event");
     }
     summaryEvent.text = "mutated";
-    expect(output.replay.events[1]).toEqual({
+    expect(output.replay.events[2]).toEqual({
       type: "agent.summary",
       text: "Inspecting files."
     });
   });
 
-  it("emits an errored completion and still closes the session when subscription fails", async () => {
+  it("emits an errored completion and still deletes the session when waiting fails", async () => {
     const gateway = createFakeGateway({
       events: [{ type: "assistant_message", text: "Started work." }],
       subscribeError: new Error("Gateway stream aborted.")
@@ -88,7 +112,7 @@ describe("runScenarioWithOpenClawAgent", () => {
 
     const output = await runScenarioWithOpenClawAgent(fixtureInput(gateway));
 
-    expect(gateway.closeSession).toHaveBeenCalledWith("session-1");
+    expect(gateway.closeSession).toHaveBeenCalledTimes(1);
     expect(output.events.map((event) => event.type)).toEqual([
       "run.started",
       "agent.summary",
@@ -106,7 +130,7 @@ describe("runScenarioWithOpenClawAgent", () => {
     });
   });
 
-  it("synthesizes a successful completion when the event stream ends without a terminal event", async () => {
+  it("synthesizes a successful completion when the official flow ends without a terminal event", async () => {
     const gateway = createFakeGateway({
       events: [{ type: "status", summary: "Finished without explicit terminal event." }]
     });
@@ -119,7 +143,7 @@ describe("runScenarioWithOpenClawAgent", () => {
         scenarioId: "scenario-1",
         scenarioType: "workflow",
         outcome: "passed",
-        summary: "OpenClaw session completed."
+        summary: "OpenClaw agent run completed."
       }
     });
   });

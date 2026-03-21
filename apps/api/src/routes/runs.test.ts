@@ -90,13 +90,17 @@ describe("run routes", () => {
   it("creates a run through the OpenClaw runtime payload", async () => {
     const gateway: OpenClawGateway = {
       async createSession() {
-        return { sessionId: "session-1" };
+        return {
+          runId: "run-0001",
+          sessionKey: "agent:agent-1:trial-arena:run-0001"
+        };
       },
       async *subscribeSession() {
+        yield { type: "status", summary: "OpenClaw run accepted: run-0001" };
         yield { type: "assistant_message", text: "Gateway agent responded." };
         yield {
           type: "session.completed",
-          summary: "OpenClaw session completed."
+          summary: "OpenClaw agent run completed."
         };
       },
       async closeSession() {
@@ -137,6 +141,7 @@ describe("run routes", () => {
     expect(runResponse.statusCode).toBe(200);
     expect(runResponse.json().replay.events.map((event: { type: string }) => event.type)).toEqual([
       "run.started",
+      "judge.update",
       "agent.summary",
       "run.completed"
     ]);

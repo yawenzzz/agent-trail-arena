@@ -63,8 +63,7 @@ export async function startRun(input: StartRunInput): Promise<StartedRun> {
       : await runScenarioWithOpenClawAgent({
           gateway: input.runtime.gateway,
           runId,
-          scenarioId: scenario.scenarioId,
-          scenarioType: scenario.type,
+          scenario,
           agentId: input.runtime.agentId,
           workspaceRoot: input.runtime.workspaceRoot
         });

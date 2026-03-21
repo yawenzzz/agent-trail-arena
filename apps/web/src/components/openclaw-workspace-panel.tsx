@@ -17,8 +17,8 @@ export function OpenClawWorkspacePanel(props: OpenClawWorkspacePanelProps) {
         <p className="eyebrow">OpenClaw State</p>
         <h2>Resolve local agents</h2>
         <p className="muted">
-          Load agents from your local OpenClaw state directory. Leave this blank to use
-          the default <code>~/.openclaw</code> location.
+          Load agents from the OpenClaw state directory that your local gateway is using.
+          Leave this blank to use the default <code>~/.openclaw</code> location.
         </p>
       </div>
 

@@ -1,7 +1,7 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { resolveOpenClawWorkspace } from "./workspace-resolver.js";
 
 const tempDirs: string[] = [];
@@ -22,35 +22,23 @@ function makeStateRoot(): string {
 }
 
 describe("resolveOpenClawWorkspace", () => {
-  it("returns configured local agents from the OpenClaw state root", async () => {
+  it("returns discovered local agents from the OpenClaw state root", async () => {
     const stateRoot = makeStateRoot();
     const configPath = join(stateRoot, "openclaw.json");
+    const listAgents = vi.fn().mockResolvedValue([
+      {
+        id: "work",
+        name: "Work Agent",
+        workspace: "~/trial-work-agent"
+      }
+    ]);
 
-    mkdirSync(join(stateRoot, "agents", "work"), { recursive: true });
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          agents: {
-            defaults: {
-              workspace: "~/trial-default-workspace"
-            },
-            list: [
-              {
-                id: "work",
-                name: "Work Agent",
-                workspace: "~/trial-work-agent"
-              }
-            ]
-          }
-        },
-        null,
-        2
-      )
-    );
+    const result = await resolveOpenClawWorkspace({ stateRoot, listAgents });
 
-    const result = await resolveOpenClawWorkspace({ stateRoot });
-
+    expect(listAgents).toHaveBeenCalledWith({
+      stateRoot,
+      configPath
+    });
     expect(result.stateRoot).toBe(stateRoot);
     expect(result.configPath).toBe(configPath);
     expect(result.agents).toEqual([
@@ -58,15 +46,18 @@ describe("resolveOpenClawWorkspace", () => {
         agentId: "work",
         agentName: "Work Agent",
         definitionPath: configPath,
-        workspaceRoot: "/Users/yawen.zheng/trial-work-agent"
+        workspaceRoot: join(homedir(), "trial-work-agent")
       }
     ]);
   });
 
-  it("returns the implicit main agent when no multi-agent config exists", async () => {
+  it("returns the implicit main agent when discovery is empty", async () => {
     const stateRoot = makeStateRoot();
 
-    const result = await resolveOpenClawWorkspace({ stateRoot });
+    const result = await resolveOpenClawWorkspace({
+      stateRoot,
+      listAgents: vi.fn().mockResolvedValue([])
+    });
 
     expect(result).toEqual({
       stateRoot,
@@ -90,60 +81,46 @@ describe("resolveOpenClawWorkspace", () => {
     );
   });
 
-  it("rejects malformed OpenClaw config", async () => {
+  it("rejects malformed discovery payloads", async () => {
     const stateRoot = makeStateRoot();
     const configPath = join(stateRoot, "openclaw.json");
-    writeFileSync(configPath, "{ broken json");
 
-    await expect(resolveOpenClawWorkspace({ stateRoot })).rejects.toThrow(
-      `Malformed OpenClaw config at ${configPath}`
+    await expect(
+      resolveOpenClawWorkspace({
+        stateRoot,
+        listAgents: vi.fn().mockResolvedValue([{ workspace: "~/missing-id" }])
+      })
+    ).rejects.toThrow(
+      `Malformed OpenClaw agent discovery for ${configPath}: entry 0 is missing a non-empty string id`
     );
   });
 
-  it("rejects duplicate configured agent ids", async () => {
+  it("rejects duplicate discovered agent ids", async () => {
     const stateRoot = makeStateRoot();
     const configPath = join(stateRoot, "openclaw.json");
 
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          agents: {
-            list: [
-              { id: "dup-agent", workspace: "~/workspace-a" },
-              { id: "dup-agent", workspace: "~/workspace-b" }
-            ]
-          }
-        },
-        null,
-        2
-      )
-    );
-
-    await expect(resolveOpenClawWorkspace({ stateRoot })).rejects.toThrow(
+    await expect(
+      resolveOpenClawWorkspace({
+        stateRoot,
+        listAgents: vi.fn().mockResolvedValue([
+          { id: "dup-agent", workspace: "~/workspace-a" },
+          { id: "dup-agent", workspace: "~/workspace-b" }
+        ])
+      })
+    ).rejects.toThrow(
       `Duplicate OpenClaw agent id "dup-agent" found in config ${configPath}`
     );
   });
 
-  it("keeps configured agent identifiers stable across repeated discovery", async () => {
+  it("keeps discovered agent identifiers stable across repeated discovery", async () => {
     const stateRoot = makeStateRoot();
-    const configPath = join(stateRoot, "openclaw.json");
+    mkdirSync(stateRoot, { recursive: true });
+    const listAgents = vi.fn().mockResolvedValue([
+      { id: "stable-agent", workspace: "~/stable-workspace" }
+    ]);
 
-    writeFileSync(
-      configPath,
-      JSON.stringify(
-        {
-          agents: {
-            list: [{ id: "stable-agent", workspace: "~/stable-workspace" }]
-          }
-        },
-        null,
-        2
-      )
-    );
-
-    const first = await resolveOpenClawWorkspace({ stateRoot });
-    const second = await resolveOpenClawWorkspace({ stateRoot });
+    const first = await resolveOpenClawWorkspace({ stateRoot, listAgents });
+    const second = await resolveOpenClawWorkspace({ stateRoot, listAgents });
 
     expect(first.agents[0].agentId).toBe("stable-agent");
     expect(first.agents[0]).toEqual(second.agents[0]);

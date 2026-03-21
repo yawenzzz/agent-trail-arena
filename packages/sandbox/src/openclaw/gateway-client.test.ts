@@ -1,145 +1,124 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OpenClawGatewayClient } from "./gateway-client.js";
 
-type Listener = (event?: { readonly data?: string }) => void;
-
-async function flushMicrotasks(count = 1): Promise<void> {
-  for (let index = 0; index < count; index += 1) {
-    await Promise.resolve();
-  }
-}
-
-class FakeWebSocket {
-  static instances: FakeWebSocket[] = [];
-  static readonly CONNECTING = 0;
-  static readonly OPEN = 1;
-  static readonly CLOSING = 2;
-  static readonly CLOSED = 3;
-
-  readonly sentMessages: string[] = [];
-  readonly #listeners = new Map<string, Set<Listener>>();
-  readyState = FakeWebSocket.CONNECTING;
-
-  constructor(_url: string) {
-    FakeWebSocket.instances.push(this);
-    queueMicrotask(() => {
-      this.readyState = FakeWebSocket.OPEN;
-      this.emit("open");
-    });
-  }
-
-  addEventListener(type: string, listener: Listener, options?: { readonly once?: boolean }): void {
-    const listeners = this.#listeners.get(type) ?? new Set<Listener>();
-
-    if (options?.once) {
-      const onceListener: Listener = (event) => {
-        listeners.delete(onceListener);
-        listener(event);
-      };
-      listeners.add(onceListener);
-    } else {
-      listeners.add(listener);
-    }
-
-    this.#listeners.set(type, listeners);
-  }
-
-  removeEventListener(type: string, listener: Listener): void {
-    this.#listeners.get(type)?.delete(listener);
-  }
-
-  send(data: string): void {
-    this.sentMessages.push(data);
-
-    const message = JSON.parse(data) as {
-      readonly id: string;
-      readonly method: string;
-      readonly params?: { readonly sessionId?: string };
-    };
-
-    queueMicrotask(() => {
-      if (message.method === "connect") {
-        this.emit("message", { data: JSON.stringify({ id: message.id, result: { ok: true } }) });
-        return;
-      }
-
-      if (message.method === "session.create") {
-        this.emit("message", {
-          data: JSON.stringify({ id: message.id, result: { sessionId: "session-1" } })
-        });
-        return;
-      }
-
-      if (message.method === "session.subscribe") {
-        this.emit("message", { data: JSON.stringify({ id: message.id, result: { ok: true } }) });
-        return;
-      }
-
-      if (message.method === "session.close") {
-        this.emit("message", { data: JSON.stringify({ id: message.id, result: { ok: true } }) });
-      }
-    });
-  }
-
-  triggerClose(): void {
-    this.readyState = FakeWebSocket.CLOSED;
-    this.emit("close");
-  }
-
-  private emit(type: string, event?: { readonly data?: string }): void {
-    for (const listener of this.#listeners.get(type) ?? []) {
-      listener(event);
-    }
-  }
-}
-
-afterEach(() => {
-  FakeWebSocket.instances = [];
-  vi.unstubAllGlobals();
-});
-
 describe("OpenClawGatewayClient", () => {
-  it("bootstraps once and creates a session without recursive connect loops", async () => {
-    vi.stubGlobal("WebSocket", FakeWebSocket);
-
+  it("uses official agent/agent.wait/sessions.get/sessions.delete methods", async () => {
+    const callGatewayMock = vi.fn(async (input: { readonly method: string }) => {
+      switch (input.method) {
+        case "agent":
+          return { runId: "run-001" };
+        case "agent.wait":
+          return { runId: "run-001", status: "ok" };
+        case "sessions.get":
+          return {
+            messages: [
+              {
+                role: "assistant",
+                content: [
+                  { type: "text", text: "Inspecting workspace." },
+                  { type: "tool_use", name: "bash", input: { command: "ls" } }
+                ]
+              }
+            ]
+          };
+        case "sessions.delete":
+          return { ok: true };
+        default:
+          throw new Error(`Unexpected method: ${input.method}`);
+      }
+    });
+    const callGateway = (<T>(input: { readonly method: string }) =>
+      callGatewayMock(input) as Promise<T>) as <T>(input: {
+      readonly method: string;
+    }) => Promise<T>;
     const client = new OpenClawGatewayClient({
-      url: "ws://127.0.0.1:18789"
+      url: "ws://127.0.0.1:18789",
+      callGateway
     });
 
     const session = await client.createSession({
-      agentId: "agent-1"
+      agentId: "main",
+      message: "Run benchmark.",
+      idempotencyKey: "run-001",
+      sessionKey: "agent:main:trial-arena:run-001"
     });
 
-    expect(session).toEqual({ sessionId: "session-1" });
+    const events = [];
+    for await (const event of client.subscribeSession(session)) {
+      events.push(event);
+    }
 
-    const socket = FakeWebSocket.instances[0];
-    expect(socket?.sentMessages.map((message) => JSON.parse(message).method)).toEqual([
-      "connect",
-      "session.create"
+    await client.closeSession(session);
+
+    expect(session).toEqual({
+      runId: "run-001",
+      sessionKey: "agent:main:trial-arena:run-001"
+    });
+    expect(callGatewayMock.mock.calls.map(([input]) => input.method)).toEqual([
+      "agent",
+      "agent.wait",
+      "sessions.get",
+      "sessions.delete"
+    ]);
+    expect(events).toEqual([
+      {
+        type: "status",
+        summary: "OpenClaw run accepted: run-001"
+      },
+      {
+        type: "assistant_message",
+        sessionId: undefined,
+        text: "Inspecting workspace."
+      },
+      {
+        type: "tool_call",
+        sessionId: undefined,
+        toolName: "bash",
+        input: { command: "ls" }
+      },
+      {
+        type: "session.completed",
+        sessionId: undefined,
+        summary: "OpenClaw agent run completed."
+      }
     ]);
   });
 
-  it("turns socket closure into a terminal session error event for subscribers", async () => {
-    vi.stubGlobal("WebSocket", FakeWebSocket);
+  it("turns an agent.wait timeout into a terminal session error", async () => {
+    const callGatewayMock = vi.fn(async (input: { readonly method: string }) => {
+      if (input.method === "agent") {
+        return { runId: "run-timeout" };
+      }
 
+      if (input.method === "agent.wait") {
+        return { runId: "run-timeout", status: "timeout" };
+      }
+
+      throw new Error(`Unexpected method: ${input.method}`);
+    });
     const client = new OpenClawGatewayClient({
-      url: "ws://127.0.0.1:18789"
+      url: "ws://127.0.0.1:18789",
+      callGateway: (<T>(input: { readonly method: string }) =>
+        callGatewayMock(input) as Promise<T>) as <T>(input: {
+        readonly method: string;
+      }) => Promise<T>
     });
 
-    const events = client.subscribeSession("session-1");
-    const firstEventPromise = events.next();
+    const session = await client.createSession({
+      agentId: "main",
+      message: "Run benchmark.",
+      sessionKey: "agent:main:trial-arena:run-timeout"
+    });
 
-    await flushMicrotasks(5);
+    const events = [];
+    for await (const event of client.subscribeSession(session)) {
+      events.push(event);
+    }
 
-    FakeWebSocket.instances[0]?.triggerClose();
-
-    await expect(firstEventPromise).resolves.toEqual({
-      done: false,
-      value: {
-        type: "session.error",
-        sessionId: "session-1",
-        summary: "OpenClaw Gateway connection closed."
-      }
+    expect(events.at(-1)).toEqual({
+      type: "session.error",
+      sessionId: undefined,
+      summary: "OpenClaw agent.wait timed out for run run-timeout."
     });
   });
 });

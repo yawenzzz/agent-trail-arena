@@ -1,9 +1,10 @@
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   OpenClawAgentDescriptor,
   ResolvedOpenClawWorkspace
 } from "./types.js";
+import { executeOpenClawJsonCommand } from "./command-runner.js";
 import {
   expandHomePath,
   resolveOpenClawConfigPath,
@@ -13,61 +14,25 @@ import {
 export interface ResolveOpenClawWorkspaceInput {
   readonly stateRoot?: string;
   readonly configPath?: string;
+  readonly listAgents?: (
+    input: ResolveOpenClawDiscoveryInput
+  ) => Promise<readonly OpenClawCliAgentEntry[]>;
 }
 
-interface OpenClawAgentConfigEntry {
+interface OpenClawCliAgentEntry {
   readonly id: string;
   readonly name?: string;
+  readonly identityName?: string;
   readonly workspace?: string;
 }
 
-interface OpenClawConfig {
-  readonly agents?: {
-    readonly defaults?: {
-      readonly workspace?: string;
-    };
-    readonly list?: readonly OpenClawAgentConfigEntry[];
-  };
+interface ResolveOpenClawDiscoveryInput {
+  readonly stateRoot: string;
+  readonly configPath: string;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function stripJsonComments(input: string): string {
-  return input
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(^|[^\\:])\/\/.*$/gm, "$1");
-}
-
-function quoteObjectKeys(input: string): string {
-  return input.replace(/([{,\s])([A-Za-z_$][A-Za-z0-9_$]*)\s*:/g, '$1"$2":');
-}
-
-function normalizeSingleQuotedStrings(input: string): string {
-  return input.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, (_match, value: string) =>
-    JSON.stringify(value.replace(/\\'/g, "'"))
-  );
-}
-
-function removeTrailingCommas(input: string): string {
-  return input.replace(/,\s*([}\]])/g, "$1");
-}
-
-function parseOpenClawConfig(rawConfig: string, configPath: string): OpenClawConfig {
-  try {
-    return JSON.parse(
-      removeTrailingCommas(
-        normalizeSingleQuotedStrings(quoteObjectKeys(stripJsonComments(rawConfig)))
-      )
-    ) as OpenClawConfig;
-  } catch (error) {
-    throw new Error(
-      `Malformed OpenClaw config at ${configPath}: ${
-        error instanceof Error ? error.message : "invalid JSON5"
-      }`
-    );
-  }
 }
 
 async function assertDirectory(pathname: string, message: string): Promise<void> {
@@ -84,26 +49,6 @@ async function assertDirectory(pathname: string, message: string): Promise<void>
   }
 }
 
-async function readConfig(configPath: string): Promise<OpenClawConfig | null> {
-  let rawConfig: string;
-
-  try {
-    rawConfig = await readFile(configPath, "utf8");
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return null;
-    }
-
-    throw new Error(
-      `Failed to read OpenClaw config at ${configPath}: ${
-        error instanceof Error ? error.message : "unknown error"
-      }`
-    );
-  }
-
-  return parseOpenClawConfig(rawConfig, configPath);
-}
-
 function resolveConfiguredPath(pathname: string, fallbackBase: string): string {
   return join("/", expandHomePath(pathname)).startsWith("//")
     ? expandHomePath(pathname)
@@ -112,54 +57,57 @@ function resolveConfiguredPath(pathname: string, fallbackBase: string): string {
       : join(fallbackBase, expandHomePath(pathname));
 }
 
-function defaultWorkspaceForAgent(
-  stateRoot: string,
-  agentId: string,
-  configuredDefaultWorkspace?: string
-): string {
-  if (configuredDefaultWorkspace) {
-    return configuredDefaultWorkspace;
+async function discoverAgentsViaCli(
+  input: ResolveOpenClawDiscoveryInput
+): Promise<readonly OpenClawCliAgentEntry[]> {
+  const discovered = await executeOpenClawJsonCommand<unknown>({
+    args: ["agents", "list", "--json"],
+    env: {
+      OPENCLAW_STATE_DIR: input.stateRoot,
+      OPENCLAW_CONFIG_PATH: input.configPath
+    }
+  });
+
+  if (!Array.isArray(discovered)) {
+    throw new Error(
+      `Malformed OpenClaw agent discovery for ${input.configPath}: expected a JSON array`
+    );
   }
 
+  return discovered as readonly OpenClawCliAgentEntry[];
+}
+
+function defaultWorkspaceForAgent(
+  stateRoot: string,
+  agentId: string
+): string {
   return agentId === "main"
     ? join(stateRoot, "workspace")
     : join(stateRoot, `workspace-${agentId}`);
 }
 
-function readConfiguredAgents(
+function readDiscoveredAgents(
   stateRoot: string,
   configPath: string,
-  config: OpenClawConfig | null
+  discoveredAgents: readonly OpenClawCliAgentEntry[]
 ): OpenClawAgentDescriptor[] {
-  const agentsNode = isObject(config?.agents) ? config.agents : undefined;
-  const defaultsNode = isObject(agentsNode?.defaults) ? agentsNode?.defaults : undefined;
-  const configuredDefaultWorkspace =
-    typeof defaultsNode?.workspace === "string"
-      ? resolveConfiguredPath(defaultsNode.workspace, stateRoot)
-      : undefined;
-  const configuredAgents = Array.isArray(agentsNode?.list) ? agentsNode.list : undefined;
-
-  if (!configuredAgents || configuredAgents.length === 0) {
+  if (discoveredAgents.length === 0) {
     return [
       {
         agentId: "main",
         agentName: "main",
         definitionPath: configPath,
-        workspaceRoot: defaultWorkspaceForAgent(
-          stateRoot,
-          "main",
-          configuredDefaultWorkspace
-        )
+        workspaceRoot: defaultWorkspaceForAgent(stateRoot, "main")
       }
     ];
   }
 
   const seen = new Set<string>();
 
-  return configuredAgents.map((agent, index) => {
+  return discoveredAgents.map((agent, index) => {
     if (!isObject(agent) || typeof agent.id !== "string" || agent.id.trim().length === 0) {
       throw new Error(
-        `Malformed OpenClaw config at ${configPath}: agents.list[${index}].id must be a non-empty string`
+        `Malformed OpenClaw agent discovery for ${configPath}: entry ${index} is missing a non-empty string id`
       );
     }
 
@@ -176,12 +124,14 @@ function readConfiguredAgents(
       agentName:
         typeof agent.name === "string" && agent.name.trim().length > 0
           ? agent.name
+          : typeof agent.identityName === "string" && agent.identityName.trim().length > 0
+            ? agent.identityName
           : agent.id,
       definitionPath: configPath,
       workspaceRoot:
         typeof agent.workspace === "string" && agent.workspace.trim().length > 0
           ? resolveConfiguredPath(agent.workspace, stateRoot)
-          : defaultWorkspaceForAgent(stateRoot, agent.id, configuredDefaultWorkspace)
+          : defaultWorkspaceForAgent(stateRoot, agent.id)
     };
   });
 }
@@ -197,8 +147,11 @@ export async function resolveOpenClawWorkspace(
     `OpenClaw state root does not exist or is not a directory: ${stateRoot}`
   );
 
-  const config = await readConfig(configPath);
-  const agents = readConfiguredAgents(stateRoot, configPath, config);
+  const discoveredAgents = await (input.listAgents ?? discoverAgentsViaCli)({
+    stateRoot,
+    configPath
+  });
+  const agents = readDiscoveredAgents(stateRoot, configPath, discoveredAgents);
 
   return {
     stateRoot,
