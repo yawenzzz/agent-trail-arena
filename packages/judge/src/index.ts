@@ -5,6 +5,15 @@ export type {
   JudgeScenarioOutput
 } from "./admission-decision.js";
 
+export { extractEvidenceAnchors } from "./evidence-extractor.js";
+export type { ExtractEvidenceAnchorsInput } from "./evidence-extractor.js";
+
+export { classifyFailurePatterns } from "./failure-classifier.js";
+export type {
+  ClassifyFailurePatternsInput,
+  FailurePatternHint
+} from "./failure-classifier.js";
+
 export { deriveMeasuredProfile } from "./profile-aggregation.js";
 export type {
   AggregationInput,
