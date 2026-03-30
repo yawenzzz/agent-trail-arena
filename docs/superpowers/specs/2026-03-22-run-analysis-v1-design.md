@@ -1,92 +1,95 @@
-# Run Analysis V1 Design
+# Run Analysis And Grade Assessment V1 Design
 
 ## Summary
 
-Add a first structured analysis layer to Trial Arena so every completed run produces a stable, evidence-backed diagnosis artifact rather than only a score, findings list, and admission label.
+Add a first qualification-oriented evaluation layer to Trial Arena so every completed run can support an evidence-backed grade recommendation and authorization decision.
 
-This design prioritizes the first two product directions captured in the March 20 notes:
+This design updates the previous run-analysis direction. `RunAnalysis` remains important, but it is no longer the top-level product artifact. It becomes the middle layer between raw run evidence and the final `GradeAssessment`.
 
-1. `Failure Taxonomy + Judge Output V1`
-2. `Improvement Report V1`
+The new output hierarchy is:
 
-The immediate goal is to make Trial Arena useful for agent improvement, not only evaluation. The system should classify important failure patterns, attach evidence anchors, generate pragmatic suggested changes, and persist the result as part of the completed run.
+`run evidence -> run analysis -> grade assessment`
+
+The immediate goal is not just to help builders improve agents. It is to help them decide what level of responsibility an agent can safely carry today, what it must not yet be authorized to do, and what gaps block promotion.
 
 ## Goals
 
-- Introduce a stable `RunAnalysis` artifact for every completed run.
-- Add a V1 failure taxonomy with the eight top-level classes from the product notes.
-- Generate evidence-backed improvement reports using deterministic rules only.
-- Persist the analysis artifact alongside the existing stored run data.
-- Expose analysis through a dedicated API route.
-- Keep the design ready for later version-to-version comparison without implementing comparison flow yet.
+- Keep `RunAnalysis` as a stable evidence-backed diagnosis artifact.
+- Add a new top-level `GradeAssessment` artifact.
+- Support a V1 common grade ladder:
+  - `Intern`
+  - `Junior`
+  - `Mid`
+  - `Senior`
+  - `Lead`
+- Make grade recommendation depend on deterministic responsibility and boundary checks, not average score alone.
+- Persist both `RunAnalysis` and `GradeAssessment` with each completed run.
+- Expose grade-focused outputs through dedicated API routes.
+- Keep the schema ready for later version-to-version grade comparison.
 
 ## Non-Goals
 
-- Building a new web results page in this pass.
+- Building a new frontend grade dashboard in this pass.
 - Building a TUI in this pass.
-- Adding LLM-based diagnosis or suggestion generation.
-- Supporting historical multi-run aggregation.
-- Implementing a full subtype ontology beyond pragmatic rule-named strings.
-- Implementing version comparison execution or UI.
+- Adding LLM-based diagnosis or grade assignment.
+- Supporting role-specific ladders such as coder-only or researcher-only tracks.
+- Implementing historical multi-run grade trend views.
+- Implementing automated task dispatch integration with external builder frameworks in this pass.
 
 ## Product Boundary
 
-Run Analysis V1 is a backend-first feature.
+V1 remains backend-first.
 
 The output surface for this pass is:
 
-- persisted analysis on each stored run
-- a dedicated run analysis API
-- stable domain types that later consumers can use
+- persisted `RunAnalysis`
+- persisted `GradeAssessment`
+- dedicated API access to both artifacts
+- stable domain contracts for later consumers
 
-This pass does not require a new frontend. Existing web pages may remain unchanged until a later slice consumes the new analysis route.
+Existing web pages can remain unchanged until a later slice consumes the new artifacts.
 
 ## Recommended Architecture
 
 The recommended architecture is:
 
-`runner -> judge -> analysis -> finalize -> API`
+`runner -> judge -> run analysis -> grade evaluation -> finalize -> API`
 
-The current run lifecycle already produces:
+The run lifecycle should now produce four result layers:
 
-- `scenario`
-- `events`
-- `replay`
 - `judge`
 - `admission`
-- `measuredProfile`
+- `runAnalysis`
+- `gradeAssessment`
 
-Run Analysis V1 should treat those outputs as inputs and derive a separate structured artifact:
+The distinction matters:
 
-- `analysis`
+- `judge` identifies direct rule findings and red lines
+- `runAnalysis` explains capability and failure patterns
+- `gradeAssessment` translates those signals into qualification and authorization language
 
-The artifact should be generated once when the run completes and then persisted as part of `StoredRun`. This keeps diagnoses stable over time and avoids recomputing analysis differently when code changes later.
+## Product Semantics
+
+The key product rule is:
+
+`grade is an authorization level, not a vanity label`
+
+That means Trial Arena should not answer only:
+
+- how good was the agent
+
+It should answer:
+
+- what level of responsibility is justified
+- what kind of work may be delegated
+- what kind of work must still be restricted
+- what evidence supports those decisions
 
 ## Data Model
 
-### New Domain Types
+### RunAnalysis
 
-Add focused types under `packages/domain` for analysis contracts.
-
-Recommended types:
-
-- `EvidenceAnchor`
-- `FailureClass`
-- `FailureSeverity`
-- `ConfidenceLevel`
-- `EvidenceMode`
-- `ChangeType`
-- `RetestType`
-- `FailurePattern`
-- `SuggestedChange`
-- `RetestPlan`
-- `CapabilityInsight`
-- `ImprovementReport`
-- `RunAnalysis`
-
-### RunAnalysis Shape
-
-`RunAnalysis` should act as the root artifact for one completed run.
+`RunAnalysis` remains the diagnosis layer.
 
 Recommended fields:
 
@@ -102,17 +105,51 @@ Recommended fields:
 - `confidence`
 - `comparisonKeys`
 
-### Comparison Readiness
+`RunAnalysis` should answer:
 
-Although version comparison is out of scope, the schema should preserve the fields needed later for diffing and grouping.
+- what happened
+- what weaknesses or strengths were observed
+- what should be improved next
 
-Recommended comparison-oriented fields:
+### GradeAssessment
 
-- taxonomy classes represented in the run
-- affected capability dimensions
-- suggested change types
+Add a new top-level artifact:
 
-This should be expressed through a small `comparisonKeys` object rather than by overloading user-facing summary fields.
+- `GradeAssessment`
+
+Recommended fields:
+
+- `assessmentVersion`
+- `runId`
+- `scenarioId`
+- `recommendedGrade`
+- `gradeConfidence`
+- `authorizedScope`
+- `restrictedScope`
+- `promotionGaps`
+- `blockingIssues`
+- `supportingEvidence`
+- `recommendedNextActions`
+- `comparisonKeys`
+
+`GradeAssessment` should answer:
+
+- what grade the agent currently qualifies for
+- what it may currently be trusted to do
+- what it must not yet be trusted to do
+- what blocks promotion to the next level
+
+### Grade Ladder
+
+V1 should support a common ladder:
+
+- `Intern`
+- `Junior`
+- `Mid`
+- `Senior`
+- `Lead`
+
+This ladder should be interpreted as responsibility and authorization levels, not raw capability tiers.
 
 ## Module Decomposition
 
@@ -120,21 +157,31 @@ This should be expressed through a small `comparisonKeys` object rather than by 
 
 Responsibility:
 
-- define the analysis data contracts
-- export shared enums and interfaces
-- keep analysis separate from `JudgeResult`
+- define `RunAnalysis` contracts
+- define `GradeAssessment` contracts
+- define common grade enums and authorization-related types
+
+Recommended new types:
+
+- `AgentGrade`
+- `AuthorizationScope`
+- `PromotionGap`
+- `BlockingIssue`
+- `GradeAssessment`
 
 Important boundary:
 
-`JudgeResult` should remain focused on deterministic rule-judge output. Analysis is a separate artifact, not an expanded judge blob.
+- `JudgeResult` remains focused on rule findings
+- `RunAnalysis` remains focused on diagnosis
+- `GradeAssessment` becomes the user-facing qualification artifact
 
 ### packages/judge
 
 Responsibility:
 
 - keep existing `judgeScenario(...)`
-- add a new `analyzeRun(...)` entry point
-- derive structured analysis from existing run outputs
+- keep or expand `analyzeRun(...)`
+- add a new `evaluateGrade(...)` entry point
 
 Recommended internal split:
 
@@ -142,39 +189,107 @@ Recommended internal split:
 - `failure-classifier`
 - `suggestion-generator`
 - `report-generator`
+- `grade-evaluator`
 
-This keeps future replacement of one stage possible without rewriting the full pipeline.
+This allows the system to treat diagnosis and grade assignment as separate layers while still sharing evidence extraction and rule signals.
 
 ### packages/orchestrator
 
 Responsibility:
 
 - call `analyzeRun(...)` after `judgeScenario(...)`
-- persist `analysis` inside `StoredRun`
+- call `evaluateGrade(...)` after analysis generation
+- persist both artifacts in `StoredRun`
 
 Recommended lifecycle:
 
 1. runner returns `events + replay`
 2. judge returns `judge + admission + measuredProfile`
 3. analysis returns `RunAnalysis`
-4. finalize persists all four result layers
+4. grade evaluation returns `GradeAssessment`
+5. finalize persists the full result set
 
 ### apps/api
 
 Responsibility:
 
-- expose a dedicated analysis endpoint
-- keep run summary and analysis artifact as separate route concerns
+- expose dedicated read routes for analysis and grade assessment
+- keep run summary, analysis, and grade assessment as separate route concerns
 
-Recommended route:
+Recommended routes:
 
 - `GET /runs/:runId/analysis`
+- `GET /runs/:runId/grade`
 
-This is preferred over embedding the full analysis artifact directly into the existing run-summary route because the shapes serve different purposes and will likely evolve at different speeds.
+This separation helps later consumers read only the artifact they need.
+
+## Responsibility-First Evaluation
+
+The system should not assign grade using average score alone.
+
+V1 should use:
+
+- hard gates
+- responsibility checks
+- consistency checks
+
+### Hard Gates
+
+These are blockers for a target grade.
+
+Examples:
+
+- unsafe high-risk action
+- boundary violation
+- hidden failure or false completion
+- failure to escalate uncertainty when required
+- failure to report blockers appropriately
+
+### Responsibility Checks
+
+These ask whether the agent can actually carry the level of work implied by the grade.
+
+Examples:
+
+- can it finish standard tasks reliably
+- can it recover from tool failures
+- can it handle ambiguity appropriately
+- can it control risk before acting
+- can it provide auditable final reporting
+
+### Consistency Checks
+
+The system should guard against grading on a single lucky run.
+
+V1 may begin with per-run grade recommendation, but the schema should allow later multi-run stability checks and grade trend comparisons.
+
+## Capability Model
+
+The existing capability dimensions remain useful as intermediate evidence:
+
+- `planning`
+- `execution`
+- `toolProficiency`
+- `recovery`
+- `robustness`
+- `safetyDiscipline`
+- `efficiency`
+- `correctness`
+- `costAwareness`
+- `observability`
+
+These dimensions should inform grade evaluation, not replace it.
+
+Examples:
+
+- weak `observability` can restrict independent ownership
+- weak `recovery` can block promotion beyond lower grades
+- weak `safetyDiscipline` can block higher autonomy
+- strong `planning` and `toolProficiency` can support broader authorization only if behavior is also safe and visible
 
 ## Failure Taxonomy V1
 
-The V1 taxonomy should implement the top-level classes already described in the notes:
+The V1 taxonomy still uses the same top-level classes:
 
 - `goal_understanding`
 - `decomposition`
@@ -185,40 +300,27 @@ The V1 taxonomy should implement the top-level classes already described in the 
 - `robustness`
 - `efficiency`
 
-### Taxonomy Rules
+Its role is now dual-purpose:
 
-V1 should use deterministic classification rules only.
+- diagnosis
+- grade blocking or authorization narrowing
 
-The system should not infer hidden model intent. It should classify only from observable evidence in:
+Examples:
 
-- run events
-- replay events
-- judge findings
-- terminal outcome
-
-### Subtypes
-
-Subtype strings should be pragmatic and rule-originated, for example:
-
-- `dangerous_shell_command`
-- `no_retry_after_tool_failure`
-- `missing_blocker_reporting`
-
-This is enough for V1 reporting and future grouping without pretending the system can perfectly explain every failure mode.
+- `safety` failures can cap the maximum recommended grade
+- `observability` failures can restrict autonomous ownership
+- `recovery` failures can restrict multi-step task delegation
+- `decomposition` failures can restrict higher-ambiguity work
 
 ## Evidence Anchor Strategy
 
-Every visible conclusion in the analysis must link back to concrete evidence.
+Every analysis conclusion and every grade conclusion must link back to concrete evidence.
 
-### Supported Sources
-
-V1 evidence anchors should be extracted from:
+Supported sources:
 
 - `events`
 - `judge.findings`
 - `replay.events`
-
-### Required Fields
 
 Recommended fields:
 
@@ -229,68 +331,74 @@ Recommended fields:
 - `replayTimestampMs` optional
 - `summary`
 
-### Rule
+Rule:
 
-Each `FailurePattern` and each `SuggestedChange` must reference at least one anchor. Conclusions without evidence references are out of scope for V1.
+- each `FailurePattern` must reference evidence
+- each `SuggestedChange` must reference evidence
+- each `BlockingIssue` must reference evidence
+- each authorization restriction should reference evidence
 
 ## Improvement Report Strategy
 
-The improvement report should be deterministic and failure-driven.
+The improvement report remains valuable, but it is no longer the final product layer.
 
-It should answer:
+It should continue to answer:
 
 1. what happened
 2. what it says about the agent
 3. why it likely happened
 4. what to try next
 
+That output now feeds grade evaluation by explaining why promotion is blocked or why scope must be restricted.
+
+## Grade Assessment Strategy
+
+`GradeAssessment` should be deterministic and responsibility-first.
+
+It should not say only:
+
+- the agent looks strong
+
+It should say:
+
+- the agent is currently best classified as `Junior`
+- it may own standard low-risk tasks
+- it should not yet own ambiguous multi-step work
+- promotion to `Mid` is blocked by weak recovery and incomplete blocker reporting
+
 ### Required Sections
 
-- executive summary
-- capability insights
-- failure diagnosis
-- evidence anchors
-- suggested changes
-- retest recommendations
+Recommended grade assessment sections:
 
-### Suggestion Generation
-
-Suggested changes should come from failure patterns rather than generic advice.
-
-Example mappings:
-
-- `recovery` -> add retry and fallback policy
-- `observability` -> require blocker and uncertainty reporting
-- `tool_use` -> improve tool selection and tool-output parsing contract
-- `safety` -> add stronger confirmation or escalation steps before risky actions
-
-Each suggested change should include:
-
-- priority
-- change type
-- reason
-- expected impact dimensions
-- targeted failure patterns
-- recommended retest
+- grade recommendation
+- confidence
+- authorized scope
+- restricted scope
+- blocking issues
+- promotion gaps
+- recommended next actions
+- supporting evidence
 
 ## End-to-End Flow
 
-The completed V1 run flow should be:
+The V1 run flow should be:
 
 1. execute the selected scenario
 2. capture `events` and `replay`
 3. derive `judge`, `admission`, and `measuredProfile`
-4. derive `analysis`
-5. persist all data into `StoredRun`
-6. serve `analysis` through the dedicated API route
+4. derive `runAnalysis`
+5. derive `gradeAssessment`
+6. persist the completed result set
+7. serve artifacts through dedicated routes
 
 ## Storage Changes
 
-`StoredRun` should be expanded with:
+`StoredRun` should expand with:
 
-- `analysis: RunAnalysis`
+- `runAnalysis: RunAnalysis`
+- `gradeAssessment: GradeAssessment`
 
-Existing fields should remain in place to avoid breaking current behavior:
+Existing fields should remain in place:
 
 - `runId`
 - `profile`
@@ -301,73 +409,98 @@ Existing fields should remain in place to avoid breaking current behavior:
 - `admission`
 - `measuredProfile`
 
+## Comparison Readiness
+
+Although full version comparison is still out of scope, both artifacts should carry comparison keys that make later grade diffing possible.
+
+Recommended comparison-oriented fields:
+
+- represented failure classes
+- affected capability dimensions
+- suggested change types
+- recommended grade
+- blocking issue categories
+- authorization categories
+
 ## Testing Strategy
 
 V1 should emphasize contract tests and golden-sample tests.
 
 ### packages/domain
 
-- schema and type-shape tests for new analysis contracts
+- schema and type-shape tests for `RunAnalysis` and `GradeAssessment`
 
 ### packages/judge
 
 - unit tests for evidence extraction
 - unit tests for failure classification
 - unit tests for suggestion generation
-- unit tests for report generation
+- unit tests for grade evaluation
+- unit tests for blocking issue and promotion gap generation
 
 ### packages/orchestrator
 
-- run finalization tests proving analysis is persisted with the stored run
+- finalization tests proving both artifacts are persisted with the stored run
 
 ### apps/api
 
 - route tests for `GET /runs/:runId/analysis`
+- route tests for `GET /runs/:runId/grade`
 - coverage for unknown runs and response-shape stability
 
 ### Golden Samples
 
-Add a small set of fixed run fixtures and assert the key analysis output for each one. This should protect against silent drift in taxonomy and suggestion behavior.
+Add a small set of fixed run fixtures and assert key outputs such as:
+
+- recommended grade
+- restricted scope
+- blocking issues
+- promotion gaps
+
+This should guard against silent drift in qualification semantics.
 
 ## Risks
 
-### Overloading JudgeResult
+### Grade As Score Skin
 
-If analysis fields are added directly to `JudgeResult`, the boundary between rule judging and diagnosis will become muddy and make future evolution harder.
-
-Mitigation:
-
-- keep analysis as a separate artifact
-
-### Low-Signal Suggestions
-
-If suggestions are not tied to failure patterns, the product will regress into generic benchmark theater.
+If grade is implemented as a renamed score, the product will drift back toward benchmark theater.
 
 Mitigation:
 
-- require every suggestion to target diagnosed failures and evidence anchors
+- make authorization scope and blocking issues first-class outputs
 
-### Premature Frontend Work
+### Weak Employment Semantics
 
-If UI work is pulled into this slice, the real data-contract work may stay vague.
+If grades do not map to real delegation decisions, the builder cannot act on them.
 
 Mitigation:
 
-- treat this pass as backend-first
+- define grade outputs in terms of allowed and restricted work
+
+### Premature Role Specialization
+
+If the project introduces multiple career tracks too early, the common ladder will remain underspecified.
+
+Mitigation:
+
+- ship a single common ladder first
 
 ## Future Extensions
 
-The next planned layer after this design is:
+After this design, the next layers should be:
 
-1. consume `RunAnalysis` in a minimal result surface
-2. add version-to-version comparison using persisted comparison keys
-3. consider hybrid or LLM-assisted diagnosis only after the deterministic baseline is trusted
+1. define the common grade ladder rigorously
+2. define grade packs aligned to responsibility levels
+3. consume `GradeAssessment` in result surfaces
+4. add version-to-version grade comparison
+5. integrate grade-aware task dispatch workflows with builder systems
 
 ## Success Criteria
 
 This design is successful when:
 
 - a completed run produces a persisted `RunAnalysis`
-- the artifact contains evidence-backed failure patterns and suggestions
-- the API can return that artifact directly
-- the schema is stable enough to support future result surfaces and version comparison
+- a completed run also produces a persisted `GradeAssessment`
+- the grade output is expressed in authorization language, not score language
+- the API can return both artifacts directly
+- the schema is stable enough to support future result surfaces and grade comparison

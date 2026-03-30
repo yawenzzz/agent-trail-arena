@@ -2,75 +2,144 @@
 
 ## Context
 
-This note captures the product discussion around where Trial Arena should go beyond a demo benchmark UI.
+This note captures the updated product direction for Trial Arena.
 
-The core intent is not just to run an agent once and show a score. The product should become a practical environment where OpenClaw users and users of other agent runtimes can bring an agent into the arena, understand its current capability shape, and improve it through repeated trial loops.
+The project should no longer be framed primarily as a benchmark arena, leaderboard, or general-purpose agent evaluation UI. Those can exist later as surfaces, but they are not the product core.
+
+The stronger product direction is:
+
+`Trial Arena = agent employment standard + qualification + authorization infrastructure`
+
+The target user is the `agent builder`, not the spectator.
+
+This is for builders who already have one or more agents inside a framework or runtime and need to answer practical operating questions:
+
+- which agent should take which task
+- what level of responsibility each agent can safely carry
+- where an agent's current boundary actually is
+- what needs to improve before that agent can be trusted with more autonomy
 
 ## Product Thesis
 
-`Trial Arena = a proving ground + an improvement loop for agents`
+`Trial Arena helps agent builders decide what an agent is qualified to do, what it is not yet qualified to do, and why.`
 
-It should not stop at:
+The project should behave more like:
 
-- running a benchmark
-- showing pass/fail
-- producing a leaderboard
+- an HR qualification system
+- a probation and promotion system
+- a role and authorization control layer
+- a regression harness for agent capability and responsibility
 
-It should do two jobs well:
+It should behave less like:
 
-1. evaluate the agent's current capability
-2. help the user improve that capability with evidence-backed guidance
+- a public benchmark site
+- a one-shot scorecard
+- a vanity leaderboard
+- a generic chat playground
 
-If Trial Arena only acts as a scoring surface, it will be low-retention and easy to replace.
-If it becomes part of the user's agent engineering loop, it can be sticky and strategically valuable.
+## Core User Problem
+
+Agent builders do not only need to know whether an agent can sometimes complete a task.
+
+They need to know:
+
+- whether the agent can reliably handle a class of tasks
+- whether it stays inside responsibility boundaries
+- whether it escalates uncertainty correctly
+- whether it reports blockers and incomplete work honestly
+- whether it can be granted more autonomy without creating hidden operational risk
+
+The real problem is not "who is strongest."
+
+The real problem is:
+
+`what can I safely and repeatedly delegate to this agent today?`
 
 ## Core User Value
 
-The user should get two outputs from every trial run:
+The product should give the builder four outputs:
 
-1. `Capability visibility`
-The user sees a credible multi-dimensional picture of what the agent is actually good at.
+1. `Recommended grade`
+What level of responsibility the agent currently qualifies for.
 
-2. `Actionable improvement guidance`
-The user understands what failed, why it failed, what kind of weakness it represents, and what to change next.
+2. `Authorized scope`
+What kind of tasks, ambiguity, and tooling authority the agent can currently be trusted with.
 
-This means the product output cannot be just "score" or "rank". It needs to become a diagnosis and iteration surface.
+3. `Restricted scope`
+What the builder should not yet authorize this agent to do.
 
-## Desired User Loop
+4. `Promotion gaps`
+What evidence-backed weaknesses must be fixed before the agent can take on more responsibility.
 
-The intended workflow is:
-
-1. bring an agent into Trial Arena
-2. run standardized but realistic trials
-3. inspect the capability graph and replay evidence
-4. inspect failure patterns and judge findings
-5. receive suggested next improvements
-6. revise the agent
-7. re-run and compare version-to-version changes
-
-This makes Trial Arena part of continuous agent improvement, not just one-time evaluation.
+This makes the product useful for task assignment, limit setting, iteration planning, and regression control.
 
 ## Product Definition
 
 Trial Arena should be positioned as:
 
-- a local-first and eventually open ecosystem for agent trials
-- a structured evaluation harness
-- a capability graph generator
+- a local-first qualification system for agents
+- a structured evidence and replay harness
 - a failure diagnosis surface
-- a comparison and iteration tool
+- a grade evaluation and authorization system
+- an iteration and promotion tracking tool
 
-It should not be positioned as:
+Trial Arena should not be positioned as:
 
 - just another benchmark leaderboard
-- a generic chat playground
+- a generic capability demo
 - a full agent IDE
-- a full replacement for runtime-native configuration tools
+- a replacement for runtime-native configuration tools
+
+## Employment Model
+
+The right mental model is not "agent score."
+
+The right mental model is:
+
+`agent grade = authorization level`
+
+That means grade is not a badge or a vanity label. Grade determines what kinds of responsibilities the builder can delegate to the agent.
+
+Recommended V1 common ladder:
+
+- `Intern`
+- `Junior`
+- `Mid`
+- `Senior`
+- `Lead`
+
+Each grade should eventually define:
+
+- the kinds of tasks the agent may own
+- the ambiguity level it may handle
+- the tools and risk level it may use autonomously
+- when it must escalate to a human or higher-grade agent
+- what behavior is required to retain that grade
+
+## Responsibility-First Evaluation
+
+The product should not assign grade from an average score.
+
+The correct model is:
+
+`run evidence -> diagnosis -> grade evaluation -> authorization decision`
+
+This means Trial Arena is not just asking:
+
+- did the task succeed
+- how high was the score
+
+It is asking:
+
+- did the agent act within the required boundary
+- did it report uncertainty and blockers
+- did it recover when things went wrong
+- did it use tools appropriately
+- would a builder be justified in delegating this class of work again
 
 ## Capability Model
 
-A stable capability model is foundational.
-The product needs a fixed, explainable set of dimensions that can survive across runtimes, scenarios, and versions.
+The existing capability dimensions remain useful, but they are no longer the final product output. They are evidence inputs to grade evaluation.
 
 Current working dimensions:
 
@@ -85,19 +154,13 @@ Current working dimensions:
 - `costAwareness`
 - `observability`
 
-These dimensions matter because they let Trial Arena answer:
-
-- what the agent claims
-- what the agent demonstrated
-- where the claim and the evidence diverge
-
-The capability graph should therefore represent not only "strength" but also "credibility of that strength under trial pressure."
+These dimensions help explain why an agent earned or failed to earn a certain grade.
 
 ## Failure Taxonomy
 
-The second foundational layer is a reusable failure taxonomy.
+The failure taxonomy remains foundational, but its purpose is now more specific.
 
-The system should not only say that a run failed. It should classify why.
+It is not only for diagnosis. It is for qualification and authorization decisions.
 
 Useful high-level failure classes:
 
@@ -110,97 +173,142 @@ Useful high-level failure classes:
 - low-quality reporting
 - brittle execution under constraints
 
-This taxonomy is important because it is what turns a replay into a coaching artifact.
+In the new product framing, certain failures do more than lower confidence. They can block grade promotion or narrow the agent's authorized scope.
+
+Examples:
+
+- `safety` failures can block higher-autonomy grades
+- `observability` failures can block independent ownership
+- `recovery` failures can block more complex task assignment
+- `decomposition` failures can block higher-ambiguity work
 
 ## Output Model
 
-A useful run result should eventually contain:
+A useful result should eventually contain:
 
 - scenario result
-- multi-dimensional capability graph
+- replay and evidence trail
 - judge findings
-- admission outcome
+- capability insights
 - failure pattern classification
-- evidence-backed improvement suggestions
+- improvement suggestions
+- recommended grade
+- authorized scope
+- restricted scope
+- promotion gaps
 - version-to-version comparison hooks
 
-The key rule is:
+The key rule remains:
 
 `every visible conclusion should be supported by run evidence`
 
-That means the arena timeline, replay, and judge outputs are not decorative. They are the proof behind the capability picture.
+That now applies not only to diagnosis, but also to grade recommendation and authorization boundaries.
+
+## Grade Evaluation
+
+The top-level product output should become `GradeAssessment`.
+
+That object should answer:
+
+- what grade the agent currently qualifies for
+- how confident the system is
+- what it may be trusted to do
+- what it must not yet be trusted to do
+- what is blocking promotion
+- what changes are recommended next
+
+This is more useful to the builder than a plain score or findings list because it maps directly to task routing and organizational control.
+
+## Desired User Loop
+
+The intended workflow should become:
+
+1. bring an agent into Trial Arena
+2. run grade-relevant scenario packs
+3. inspect evidence, replay, and diagnoses
+4. review recommended grade and authorization scope
+5. identify promotion gaps and blocking issues
+6. revise skill, memory, prompts, tools, or workflow
+7. re-run and compare the resulting grade trajectory
+
+This makes Trial Arena part of continuous agent staffing and promotion, not just evaluation.
 
 ## What Makes The Product Valuable
 
-The strongest version of this project is not "we can benchmark agents."
+The strongest version of this project is not:
+
+`we can benchmark agents`
 
 The stronger claim is:
 
-`we can help an agent builder improve an agent using repeatable trials, structured evidence, and versioned feedback`
+`we help agent builders build, grade, authorize, limit, and promote digital workers using repeatable trials and evidence-backed judgments`
 
 That makes the product closer to:
 
-- an agent evaluation framework
-- an agent coaching surface
+- an agent qualification system
+- an agent authorization layer
+- an agent coaching and promotion surface
 - an agent regression harness
 
 than to a static benchmark site.
 
 ## Open Source Direction
 
-The project should be designed to work as an open source core.
+The open source core should remain useful locally and should support the qualification model directly.
 
 Recommended open source surface:
 
 - runtime adapter interfaces
-- scenario definitions and packs
+- scenario and grade pack definitions
 - run event model
 - replay pipeline
-- judge interfaces
-- capability scoring logic
+- judge and grade evaluation interfaces
+- capability and authorization scoring logic
 
 Possible later hosted layer:
 
-- shared leaderboard
-- hosted scenario packs
+- shared scenario packs
 - team dashboards
-- managed judge services
-- historical comparison UI
+- historical grade tracking
+- managed evaluators
+- hosted comparison and reporting
 
-The open source version should already be useful locally.
-Otherwise the project will feel like marketing for a hosted product rather than a real tool.
+The hosted layer should amplify the qualification workflow, not replace the local-first trust model.
 
 ## Community Contribution Model
 
-A healthy community model likely has three contribution types:
+A healthy community model likely has four contribution types:
 
 1. `runtime adapters`
 Examples: OpenClaw, Codex, and other agent runtimes.
 
 2. `scenario packs`
-Realistic trials that test specific capabilities or failure modes.
+Realistic tasks that measure execution and boundary handling.
 
-3. `judge rules and analysis modules`
-Ways to classify performance, risk, and admission readiness.
+3. `grade packs`
+Scenario bundles aligned to responsibility levels such as Intern, Junior, Mid, Senior, and Lead.
 
-This is a better long-term contribution surface than only allowing people to submit agents to be ranked.
+4. `judge and grade evaluation modules`
+Ways to classify behavior, risk, qualification, and promotion gaps.
+
+This is stronger than only letting people submit agents to a ranking system.
 
 ## Strategic Product Risk
 
-The biggest risk is turning Trial Arena into a "benchmark theater" product:
+The biggest risk is still turning the project into benchmark theater:
 
 - pretty charts
 - lots of runs
-- little practical guidance
-
-That would create low repeat usage.
+- weak qualification meaning
+- little guidance on delegation and limits
 
 The healthier direction is:
 
-- fewer metrics
-- stronger explanations
-- clearer failure localization
-- stronger next-step guidance
+- fewer vanity metrics
+- stronger employment semantics
+- clearer authorization boundaries
+- stronger evidence and explanations
+- clearer promotion logic
 
 ## What Trial Arena Should Optimize For
 
@@ -208,8 +316,9 @@ The product should primarily optimize for:
 
 - repeatability
 - explainability
-- version comparison
+- authorization clarity
 - actionable diagnosis
+- promotion guidance
 - local-first trust
 
 It should not primarily optimize for:
@@ -221,48 +330,35 @@ It should not primarily optimize for:
 
 ## Implication For Current Architecture
 
-The current architecture should continue to support:
+The current architecture direction is still useful if it is reinterpreted correctly.
+
+The system should continue to support:
 
 - multiple runtime adapters
 - a shared `RunEvent` model
 - replay independent of runtime session survival
-- judge and admission running on stored evidence
+- judge and grade evaluation running on stored evidence
 
-That is the right direction because it supports future runtimes without forcing the UI and judge pipeline to understand each raw runtime protocol directly.
+That keeps the evidence layer runtime-agnostic while allowing the top-level qualification logic to evolve without coupling directly to any one runtime protocol.
 
 ## Suggested Near-Term Product Priorities
 
-Before broadening UI polish or public submission flows, the next product questions to resolve are:
+Before UI polish or public submission ideas, the next product questions to resolve are:
 
-1. define the capability model more rigorously
-2. define the failure taxonomy more rigorously
-3. define what the user receives as an "improvement report"
-4. define how version-to-version comparison should work
+1. define the common grade ladder rigorously
+2. define authorization boundaries for each grade
+3. define grade packs that test responsibility, not only capability
+4. define grade evaluation rules and blocking conditions
+5. define the grade assessment output artifact
 
-The reasoning is simple:
-
-- without a stable capability model, the graph is weak
-- without a failure taxonomy, the diagnosis is weak
-- without an improvement report, the product does not help users get better
-- without version comparison, repeated use loses value
+Only after that should the team optimize reports, comparison views, or broader UX surfaces.
 
 ## Working Principle
 
 Trial Arena should not be just an evaluation destination.
 
-It should become a recurring part of the agent builder's workflow:
+It should become a recurring part of the builder's staffing workflow:
 
-`build -> trial -> inspect -> revise -> re-trial`
+`build -> qualify -> authorize -> assign -> inspect -> revise -> re-qualify`
 
-That is the product loop worth protecting.
-
-## Open Questions
-
-These should be resolved in future notes or specs:
-
-- What exact capability dimensions are stable enough to ship as first-class product language?
-- How should "declared build" and "measured build" differ in the UI and the judge pipeline?
-- What should an improvement report look like after one run?
-- How should version comparison be represented?
-- What should be open source by default, and what should remain optional or hosted later?
-- How much of the product should be local-first versus collaborative or cloud-backed?
+That is the loop worth protecting.
