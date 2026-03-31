@@ -1,6 +1,12 @@
+import type {
+  GradeAssessment,
+  RunAnalysis,
+  RunEvent,
+  ScenarioDefinition,
+  TrialProfile
+} from "@openclaw/domain";
+import type { ReplayLog } from "@openclaw/sandbox";
 import type { JudgeScenarioOutput } from "../../judge/src/admission-decision.js";
-import type { ReplayLog } from "../../sandbox/src/replay-log.js";
-import type { RunEvent, ScenarioDefinition, TrialProfile } from "../../domain/src/index.js";
 import type { RunStore, StoredRun } from "./run-store.js";
 
 export interface FinalizeRunInput {
@@ -11,6 +17,8 @@ export interface FinalizeRunInput {
   readonly events: readonly RunEvent[];
   readonly replay: ReplayLog;
   readonly judge: JudgeScenarioOutput;
+  readonly runAnalysis: RunAnalysis;
+  readonly gradeAssessment: GradeAssessment;
 }
 
 export function finalizeRun(input: FinalizeRunInput): StoredRun {
@@ -26,7 +34,9 @@ export function finalizeRun(input: FinalizeRunInput): StoredRun {
       redLineTriggered: input.judge.redLineTriggered
     },
     admission: structuredClone(input.judge.admission),
-    measuredProfile: structuredClone(input.judge.measuredProfile)
+    measuredProfile: structuredClone(input.judge.measuredProfile),
+    runAnalysis: structuredClone(input.runAnalysis),
+    gradeAssessment: structuredClone(input.gradeAssessment)
   } satisfies StoredRun;
 
   input.store.saveRun(storedRun);

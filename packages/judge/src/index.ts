@@ -14,6 +14,9 @@ export type { ClassifyFailurePatternsInput } from "./failure-classifier.js";
 export { analyzeRun } from "./run-analysis.js";
 export type { AnalyzeRunInput } from "./run-analysis.js";
 
+export { evaluateGrade } from "./grade-evaluator.js";
+export type { EvaluateGradeInput } from "./grade-evaluator.js";
+
 export { deriveMeasuredProfile } from "./profile-aggregation.js";
 export type {
   AggregationInput,

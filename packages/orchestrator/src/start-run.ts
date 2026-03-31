@@ -1,6 +1,6 @@
 import type { TrialProfile } from "../../domain/src/builds.js";
 import type { ScenarioResult } from "../../domain/src/scenarios.js";
-import { judgeScenario } from "../../judge/src/index.js";
+import { analyzeRun, evaluateGrade, judgeScenario } from "../../judge/src/index.js";
 import {
   selectScenarios,
   type ScenarioRegistry
@@ -73,6 +73,20 @@ export async function startRun(input: StartRunInput): Promise<StartedRun> {
     events: runnerOutput.events,
     scenarioResult
   });
+  const runAnalysis = analyzeRun({
+    runId,
+    scenario,
+    events: runnerOutput.events,
+    replay: runnerOutput.replay,
+    judge,
+    admission: judge.admission,
+    measuredProfile: judge.measuredProfile
+  });
+  const gradeAssessment = evaluateGrade({
+    runAnalysis,
+    judge,
+    measuredProfile: judge.measuredProfile
+  });
 
   finalizeRun({
     store: input.store,
@@ -81,7 +95,9 @@ export async function startRun(input: StartRunInput): Promise<StartedRun> {
     scenario,
     events: runnerOutput.events,
     replay: runnerOutput.replay,
-    judge
+    judge,
+    runAnalysis,
+    gradeAssessment
   });
 
   return {
