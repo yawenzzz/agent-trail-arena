@@ -9,7 +9,9 @@ import {
   type ResolvedOpenClawWorkspace
 } from "../../../packages/sandbox/src/index.js";
 import { readOpenClawConfig, type OpenClawConfig } from "./config/openclaw.js";
+import { registerAnalysisRoutes } from "./routes/analysis.js";
 import { registerHealthRoutes } from "./routes/health.js";
+import { registerGradeRoutes } from "./routes/grade.js";
 import { registerOpenClawRoutes } from "./routes/openclaw.js";
 import { registerReplayRoutes } from "./routes/replay.js";
 import { registerRunRoutes } from "./routes/runs.js";
@@ -61,6 +63,8 @@ export function buildApp(options: BuildAppOptions = {}) {
     provisionAgent: options.provisionOpenClawAgent ?? createOpenClawAgent
   });
   registerRunRoutes(app, { store, openClawConfig, createOpenClawGateway });
+  registerAnalysisRoutes(app, { store });
+  registerGradeRoutes(app, { store });
   registerReplayRoutes(app, { store });
 
   return app;
