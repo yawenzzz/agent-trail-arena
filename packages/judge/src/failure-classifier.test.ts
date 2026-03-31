@@ -49,46 +49,16 @@ describe("classifyFailurePatterns", () => {
     ]);
   });
 
-  it("returns a single deduplicated pattern when repeated inputs map to the same classification", () => {
-    const evidenceAnchors = extractEvidenceAnchors({
-      runId: "run-321",
-      events: [
-        {
-          type: "judge.update",
-          summary: "No retry was attempted."
-        }
-      ]
-    });
-
+  it("does not infer extra patterns from non-errored outcomes alone", () => {
     const patterns = classifyFailurePatterns({
       runId: "run-321",
       scenarioId: "scenario-retry",
       runOutcome: "failed",
       redLineTriggered: false,
-      evidenceAnchors,
-      additionalPatternHints: [
-        {
-          class: "recovery",
-          subtype: "no-retry-after-failure",
-          summary: "Scenario scenario-retry stopped after the first failure."
-        },
-        {
-          class: "recovery",
-          subtype: "no-retry-after-failure",
-          summary: "Scenario scenario-retry stopped after the first failure."
-        }
-      ]
+      evidenceAnchors: []
     });
 
-    expect(patterns).toEqual([
-      {
-        patternId: "run-321:recovery:no-retry-after-failure",
-        class: "recovery",
-        subtype: "no-retry-after-failure",
-        summary: "Scenario scenario-retry stopped after the first failure.",
-        evidenceAnchors
-      }
-    ]);
+    expect(patterns).toEqual([]);
   });
 
   it("returns no patterns when no deterministic signals are present", () => {

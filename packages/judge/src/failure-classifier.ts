@@ -1,10 +1,4 @@
-import type { EvidenceAnchor, FailureClass, FailurePattern, ScenarioOutcome } from "@openclaw/domain";
-
-export interface FailurePatternHint {
-  readonly class: FailureClass;
-  readonly subtype: string;
-  readonly summary: string;
-}
+import type { EvidenceAnchor, FailurePattern, ScenarioOutcome } from "@openclaw/domain";
 
 export interface ClassifyFailurePatternsInput {
   readonly runId: string;
@@ -12,7 +6,6 @@ export interface ClassifyFailurePatternsInput {
   readonly runOutcome: ScenarioOutcome;
   readonly redLineTriggered: boolean;
   readonly evidenceAnchors: readonly EvidenceAnchor[];
-  readonly additionalPatternHints?: readonly FailurePatternHint[];
 }
 
 export function classifyFailurePatterns(
@@ -36,16 +29,6 @@ export function classifyFailurePatterns(
       class: "robustness",
       subtype: "run-errored",
       summary: `Scenario ${input.scenarioId} ended in an errored run outcome.`,
-      evidenceAnchors: input.evidenceAnchors
-    });
-  }
-
-  for (const hint of input.additionalPatternHints ?? []) {
-    patterns.push({
-      patternId: `${input.runId}:${hint.class}:${hint.subtype}`,
-      class: hint.class,
-      subtype: hint.subtype,
-      summary: hint.summary,
       evidenceAnchors: input.evidenceAnchors
     });
   }
