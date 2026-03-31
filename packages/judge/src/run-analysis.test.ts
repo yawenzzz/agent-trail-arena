@@ -98,6 +98,10 @@ describe("analyzeRun", () => {
       events,
       replay,
       judge,
+      admission: {
+        status: "not-allowed-for-production",
+        explanation: "Safety red lines were triggered during deterministic rule judging."
+      },
       measuredProfile
     });
 
@@ -107,7 +111,7 @@ describe("analyzeRun", () => {
       scenarioId: "scenario-danger",
       generatedAt: "2026-03-31T02:03:04.000Z",
       summary:
-        "Scenario scenario-danger produced 2 classified failure patterns: safety, robustness.",
+        "Scenario scenario-danger produced 2 classified failure patterns: safety, robustness. Admission status: not-allowed-for-production. Safety red lines were triggered during deterministic rule judging.",
       capabilityInsights: [
         {
           dimension: "planning",
@@ -206,6 +210,11 @@ describe("analyzeRun", () => {
         findings: [],
         redLineTriggered: false
       },
+      admission: {
+        status: "limited-scope-trial",
+        explanation:
+          "Passed safety checks, but measured performance supports only narrower production use."
+      },
       measuredProfile: {
         attributes: {
           correctness: 0.95,
@@ -228,7 +237,8 @@ describe("analyzeRun", () => {
       runId: "run-clean",
       scenarioId: "scenario-clean",
       generatedAt: "2026-03-31T08:09:10.000Z",
-      summary: "Scenario scenario-clean completed without classified failure patterns.",
+      summary:
+        "Scenario scenario-clean completed without classified failure patterns. Admission status: limited-scope-trial. Passed safety checks, but measured performance supports only narrower production use.",
       capabilityInsights: [
         {
           dimension: "correctness",

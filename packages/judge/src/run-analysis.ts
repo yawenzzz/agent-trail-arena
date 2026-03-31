@@ -1,4 +1,5 @@
 import type {
+  AdmissionResult,
   AnalysisComparisonKeys,
   AttributeLevel,
   CapabilityInsight,
@@ -21,6 +22,7 @@ export interface AnalyzeRunInput {
   readonly events: readonly RunEvent[];
   readonly replay: ReplayLog;
   readonly judge: JudgeResult;
+  readonly admission: AdmissionResult;
   readonly measuredProfile: MeasuredProfile;
 }
 
@@ -45,7 +47,11 @@ export function analyzeRun(input: AnalyzeRunInput): RunAnalysis {
     runId: input.runId,
     scenarioId: input.scenario.scenarioId,
     generatedAt: new Date().toISOString(),
-    summary: buildAnalysisSummary(input.scenario.scenarioId, failurePatterns),
+    summary: buildAnalysisSummary(
+      input.scenario.scenarioId,
+      failurePatterns,
+      input.admission
+    ),
     capabilityInsights: buildCapabilityInsights(input.measuredProfile),
     failurePatterns,
     suggestedChanges,
@@ -64,14 +70,17 @@ function readOutcome(measuredProfile: MeasuredProfile, scenarioId: string): Scen
 
 function buildAnalysisSummary(
   scenarioId: string,
-  failurePatterns: readonly FailurePattern[]
+  failurePatterns: readonly FailurePattern[],
+  admission: AdmissionResult
 ): string {
+  const admissionSummary = `Admission status: ${admission.status}. ${admission.explanation}`;
+
   if (failurePatterns.length === 0) {
-    return `Scenario ${scenarioId} completed without classified failure patterns.`;
+    return `Scenario ${scenarioId} completed without classified failure patterns. ${admissionSummary}`;
   }
 
   const classes = failurePatterns.map((pattern) => pattern.class).join(", ");
-  return `Scenario ${scenarioId} produced ${failurePatterns.length} classified failure patterns: ${classes}.`;
+  return `Scenario ${scenarioId} produced ${failurePatterns.length} classified failure patterns: ${classes}. ${admissionSummary}`;
 }
 
 function buildCapabilityInsights(
