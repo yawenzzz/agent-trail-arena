@@ -90,7 +90,8 @@ export function registerRunRoutes(app: FastifyInstance, options: RunRouteOptions
       };
     }
 
-    return run;
+    const { runAnalysis: _runAnalysis, gradeAssessment: _gradeAssessment, ...summary } = run;
+    return summary;
   });
 
   app.get("/runs/:runId/events", async (request, reply) => {

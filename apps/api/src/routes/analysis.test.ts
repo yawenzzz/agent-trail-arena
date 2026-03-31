@@ -23,18 +23,23 @@ describe("analysis routes", () => {
     expect(createResponse.statusCode).toBe(201);
 
     const createdRun = createResponse.json();
-    const runResponse = await app.inject({
-      method: "GET",
-      url: `/runs/${createdRun.runId}`
-    });
     const analysisResponse = await app.inject({
       method: "GET",
       url: `/runs/${createdRun.runId}/analysis`
     });
 
-    expect(runResponse.statusCode).toBe(200);
     expect(analysisResponse.statusCode).toBe(200);
-    expect(analysisResponse.json()).toEqual(runResponse.json().runAnalysis);
+    expect(analysisResponse.json()).toMatchObject({
+      reportVersion: "v1",
+      runId: createdRun.runId,
+      scenarioId: expect.any(String),
+      confidence: "medium",
+      comparisonKeys: {
+        failureClasses: expect.any(Array),
+        affectedDimensions: expect.any(Array),
+        suggestedChangeTypes: expect.any(Array)
+      }
+    });
 
     await app.close();
   });

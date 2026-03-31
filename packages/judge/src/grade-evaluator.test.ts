@@ -270,6 +270,29 @@ describe("evaluateGrade", () => {
     expect(assessment.recommendedGrade).toBe("Mid");
   });
 
+  it("keeps sparse non-core evidence at junior even when the observed score is high", () => {
+    const assessment = evaluateGrade(
+      buildInput({
+        measuredProfile: {
+          attributes: {
+            planning: 0.95
+          },
+          scenarioResults: [
+            {
+              scenarioId: "scenario-danger",
+              scenarioType: "workflow",
+              outcome: "passed",
+              summary: "Completed successfully.",
+              score: 0.95
+            }
+          ]
+        }
+      })
+    );
+
+    expect(assessment.recommendedGrade).toBe("Junior");
+  });
+
   it("caps non-safety execution failures at mid", () => {
     const toolUseAnchor = {
       anchorId: "run-333:event:2",

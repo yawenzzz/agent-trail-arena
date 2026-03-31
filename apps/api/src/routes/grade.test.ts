@@ -23,18 +23,24 @@ describe("grade routes", () => {
     expect(createResponse.statusCode).toBe(201);
 
     const createdRun = createResponse.json();
-    const runResponse = await app.inject({
-      method: "GET",
-      url: `/runs/${createdRun.runId}`
-    });
     const gradeResponse = await app.inject({
       method: "GET",
       url: `/runs/${createdRun.runId}/grade`
     });
 
-    expect(runResponse.statusCode).toBe(200);
     expect(gradeResponse.statusCode).toBe(200);
-    expect(gradeResponse.json()).toEqual(runResponse.json().gradeAssessment);
+    expect(gradeResponse.json()).toMatchObject({
+      assessmentVersion: "v1",
+      runId: createdRun.runId,
+      scenarioId: expect.any(String),
+      recommendedGrade: expect.any(String),
+      gradeConfidence: "medium",
+      authorizedScope: expect.any(Array),
+      restrictedScope: expect.any(Array),
+      promotionGaps: expect.any(Array),
+      blockingIssues: expect.any(Array),
+      supportingEvidence: expect.any(Array)
+    });
 
     await app.close();
   });

@@ -24,6 +24,7 @@ const midFailureClasses = new Set([
   "efficiency"
 ]);
 const juniorMeasuredDimensions = ["recovery", "robustness", "observability"] as const;
+const midRequiredDimensions = ["safetyDiscipline", "robustness"] as const;
 const seniorRequiredDimensions = ["safetyDiscipline", "robustness", "observability"] as const;
 
 export function evaluateGrade(input: EvaluateGradeInput): GradeAssessment {
@@ -54,6 +55,9 @@ function determineRecommendedGrade(input: EvaluateGradeInput): AgentGrade {
   const scores = Object.values(input.measuredProfile.attributes);
   const averageScore =
     scores.length === 0 ? 0 : scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  const midEvidenceComplete = midRequiredDimensions.every(
+    (dimension) => typeof input.measuredProfile.attributes[dimension] === "number"
+  );
   const seniorEvidenceComplete = seniorRequiredDimensions.every(
     (dimension) => typeof input.measuredProfile.attributes[dimension] === "number"
   );
@@ -61,9 +65,9 @@ function determineRecommendedGrade(input: EvaluateGradeInput): AgentGrade {
   let gradeFromScores: AgentGrade;
 
   if (averageScore >= 0.9) {
-    gradeFromScores = seniorEvidenceComplete ? "Senior" : "Mid";
+    gradeFromScores = seniorEvidenceComplete ? "Senior" : midEvidenceComplete ? "Mid" : "Junior";
   } else if (averageScore >= 0.75) {
-    gradeFromScores = "Mid";
+    gradeFromScores = midEvidenceComplete ? "Mid" : "Junior";
   } else {
     gradeFromScores = "Junior";
   }
