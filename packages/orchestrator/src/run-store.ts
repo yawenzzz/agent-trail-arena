@@ -1,9 +1,14 @@
-import type { AdmissionResult } from "../../domain/src/admission.js";
-import type { TrialProfile } from "../../domain/src/builds.js";
-import type { RunEvent } from "../../domain/src/events.js";
-import type { MeasuredProfile, JudgeResult } from "../../domain/src/judging.js";
-import type { ScenarioDefinition } from "../../domain/src/scenarios.js";
-import type { ReplayLog } from "../../sandbox/src/replay-log.js";
+import type {
+  AdmissionResult,
+  GradeAssessment,
+  JudgeResult,
+  MeasuredProfile,
+  RunAnalysis,
+  RunEvent,
+  ScenarioDefinition,
+  TrialProfile
+} from "@openclaw/domain";
+import type { ReplayLog } from "@openclaw/sandbox";
 
 export interface StoredRun {
   readonly runId: string;
@@ -14,6 +19,8 @@ export interface StoredRun {
   readonly judge: JudgeResult;
   readonly admission: AdmissionResult;
   readonly measuredProfile: MeasuredProfile;
+  readonly runAnalysis: RunAnalysis;
+  readonly gradeAssessment: GradeAssessment;
 }
 
 export interface RunStore {

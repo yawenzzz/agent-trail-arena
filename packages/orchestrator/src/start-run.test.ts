@@ -57,6 +57,55 @@ describe("startRun", () => {
     expect(storedRun?.scenario.scenarioId).toBeDefined();
     expect(storedRun?.replay.events).toEqual(streamedEvents);
     expect(storedRun?.admission.status).toBe("production-ready");
+    expect(storedRun?.runAnalysis).toEqual({
+      reportVersion: "v1",
+      runId: "run-0001",
+      scenarioId: storedRun?.scenario.scenarioId,
+      generatedAt: expect.any(String),
+      summary: expect.stringContaining("completed without classified failure patterns"),
+      confidence: "medium",
+      capabilityInsights: expect.any(Array),
+      failurePatterns: [],
+      suggestedChanges: [],
+      evidenceAnchors: expect.any(Array),
+      comparisonKeys: {
+        failureClasses: [],
+        affectedDimensions: [],
+        suggestedChangeTypes: []
+      }
+    });
+    expect(storedRun?.gradeAssessment).toEqual({
+      assessmentVersion: "v1",
+      runId: "run-0001",
+      scenarioId: storedRun?.scenario.scenarioId,
+      recommendedGrade: "Mid",
+      gradeConfidence: "medium",
+      authorizedScope: [
+        {
+          scopeId: "run-0001:authorized:mid",
+          summary: "Mid scope covers routine production tasks with bounded autonomy.",
+          allowedWork: [
+            "Deliver routine production tasks within approved tool and risk bounds.",
+            "Handle expected failures with documented recovery steps."
+          ],
+          blockedWork: ["Take on novel or high-blast-radius work without extra review."],
+          evidenceAnchors: expect.any(Array)
+        }
+      ],
+      restrictedScope: [],
+      promotionGaps: [
+        {
+          gapId: "run-0001:gap:senior",
+          title: "Raise average measured performance to senior bar",
+          description:
+            "Increase measured performance and consistency before expanding scope to Senior.",
+          targetGrade: "Senior",
+          evidenceAnchors: expect.any(Array)
+        }
+      ],
+      blockingIssues: [],
+      supportingEvidence: expect.any(Array)
+    });
   });
 
   it("creates a run through the OpenClaw runtime target", async () => {
@@ -102,6 +151,9 @@ describe("startRun", () => {
       "run.completed"
     ]);
     expect(storedRun?.admission.status).toBe("production-ready");
+    expect(storedRun?.runAnalysis.runId).toBe(run.runId);
+    expect(storedRun?.gradeAssessment.runId).toBe(run.runId);
+    expect(storedRun?.gradeAssessment.recommendedGrade).toBe("Mid");
   });
 
   it("rejects requests for runs that were never stored", async () => {

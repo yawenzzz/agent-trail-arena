@@ -60,6 +60,8 @@ describe("run routes", () => {
     expect(run.runId).toBe("run-0001");
     expect(run.scenario.scenarioId).toBeDefined();
     expect(run.admission.status).toBe("production-ready");
+    expect(run).not.toHaveProperty("runAnalysis");
+    expect(run).not.toHaveProperty("gradeAssessment");
 
     await app.close();
   });
