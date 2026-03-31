@@ -1,20 +1,45 @@
-import type { EvidenceAnchor, RunEvent } from "@openclaw/domain";
+import type { EvidenceAnchor, JudgeFinding, RunEvent } from "@openclaw/domain";
 
 export interface ExtractEvidenceAnchorsInput {
   readonly runId: string;
-  readonly events: readonly RunEvent[];
+  readonly events?: readonly RunEvent[];
+  readonly replayEvents?: readonly RunEvent[];
+  readonly findings?: readonly JudgeFinding[];
 }
 
 export function extractEvidenceAnchors(
   input: ExtractEvidenceAnchorsInput
 ): readonly EvidenceAnchor[] {
-  return input.events.map((event, eventIndex) => ({
-    anchorId: `${input.runId}:event:${eventIndex}`,
+  const eventAnchors = (input.events ?? []).map((event, eventIndex) =>
+    buildEventAnchor(input.runId, event, eventIndex, "event")
+  );
+  const replayAnchors = (input.replayEvents ?? []).map((event, eventIndex) =>
+    buildEventAnchor(input.runId, event, eventIndex, "replay")
+  );
+  const findingAnchors = (input.findings ?? []).map((finding, findingIndex) => ({
+    anchorId: `${input.runId}:finding:${findingIndex}`,
     runId: input.runId,
+    summary: summarizeFinding(finding)
+  }));
+
+  return [...eventAnchors, ...replayAnchors, ...findingAnchors];
+}
+
+function buildEventAnchor(
+  runId: string,
+  event: RunEvent,
+  eventIndex: number,
+  sourceKind: "event" | "replay"
+): EvidenceAnchor {
+  const summary = summarizeRunEvent(event);
+
+  return {
+    anchorId: `${runId}:${sourceKind}:${eventIndex}`,
+    runId,
     eventType: event.type,
     eventIndex,
-    summary: summarizeRunEvent(event)
-  }));
+    summary: sourceKind === "replay" ? `Replay event: ${summary}` : summary
+  };
 }
 
 function summarizeRunEvent(event: RunEvent): string {
@@ -34,6 +59,10 @@ function summarizeRunEvent(event: RunEvent): string {
     case "run.completed":
       return `Run completed with outcome ${event.result.outcome}.`;
   }
+}
+
+function summarizeFinding(finding: JudgeFinding): string {
+  return `Judge finding ${finding.code} (${finding.severity}): ${finding.message}`;
 }
 
 function readCommand(input: unknown): string | undefined {

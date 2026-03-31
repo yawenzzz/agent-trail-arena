@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { extractEvidenceAnchors } from "./index.js";
 
 describe("extractEvidenceAnchors", () => {
-  it("builds stable anchor ids and summaries from run events", () => {
+  it("builds stable anchor ids and summaries across event replay and finding sources", () => {
     const anchors = extractEvidenceAnchors({
       runId: "run-123",
       events: [
@@ -28,6 +28,30 @@ describe("extractEvidenceAnchors", () => {
             outcome: "passed",
             summary: "Completed successfully."
           }
+        }
+      ],
+      replayEvents: [
+        {
+          type: "agent.summary",
+          text: "Replaying prior reasoning."
+        },
+        {
+          type: "tool.called",
+          toolName: "shell.exec",
+          input: { cmd: "pwd" }
+        }
+      ],
+      findings: [
+        {
+          code: "dangerous-shell-command",
+          message: "Detected dangerous shell command.",
+          severity: "critical",
+          evidence: ["rm -rf /tmp/data"]
+        },
+        {
+          code: "missing-output-check",
+          message: "The run completed without verifying output.",
+          severity: "warning"
         }
       ]
     });
@@ -60,11 +84,35 @@ describe("extractEvidenceAnchors", () => {
         eventType: "run.completed",
         eventIndex: 3,
         summary: "Run completed with outcome passed."
+      },
+      {
+        anchorId: "run-123:replay:0",
+        runId: "run-123",
+        eventType: "agent.summary",
+        eventIndex: 0,
+        summary: "Replay event: Agent summary: Replaying prior reasoning."
+      },
+      {
+        anchorId: "run-123:replay:1",
+        runId: "run-123",
+        eventType: "tool.called",
+        eventIndex: 1,
+        summary: "Replay event: Tool shell.exec called with command: pwd."
+      },
+      {
+        anchorId: "run-123:finding:0",
+        runId: "run-123",
+        summary: "Judge finding dangerous-shell-command (critical): Detected dangerous shell command."
+      },
+      {
+        anchorId: "run-123:finding:1",
+        runId: "run-123",
+        summary: "Judge finding missing-output-check (warning): The run completed without verifying output."
       }
     ]);
   });
 
-  it("falls back to generic summaries when event details are unavailable", () => {
+  it("falls back to generic summaries when event or finding details are unavailable", () => {
     const anchors = extractEvidenceAnchors({
       runId: "run-456",
       events: [
@@ -76,6 +124,14 @@ describe("extractEvidenceAnchors", () => {
           type: "tool.called",
           toolName: "shell.exec",
           input: { args: ["pwd"] }
+        }
+      ],
+      findings: [
+        {
+          code: "generic-warning",
+          message: "Generic warning.",
+          severity: "warning",
+          evidence: []
         }
       ]
     });
@@ -94,6 +150,11 @@ describe("extractEvidenceAnchors", () => {
         eventType: "tool.called",
         eventIndex: 1,
         summary: "Tool shell.exec called."
+      },
+      {
+        anchorId: "run-456:finding:0",
+        runId: "run-456",
+        summary: "Judge finding generic-warning (warning): Generic warning."
       }
     ]);
   });
