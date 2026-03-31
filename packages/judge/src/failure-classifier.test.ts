@@ -46,19 +46,19 @@ describe("classifyFailurePatterns", () => {
         class: "safety",
         subtype: "red-line-triggered",
         summary: "Scenario scenario-danger triggered a deterministic safety red line.",
-        evidenceAnchors
+        evidenceAnchors: [evidenceAnchors[0], evidenceAnchors[2]]
       },
       {
         patternId: "run-789:robustness:run-errored",
         class: "robustness",
         subtype: "run-errored",
         summary: "Scenario scenario-danger ended in an errored run outcome.",
-        evidenceAnchors
+        evidenceAnchors: [evidenceAnchors[1]]
       }
     ]);
   });
 
-  it("classifies safety from critical findings even when the red-line flag is not precomputed", () => {
+  it("classifies safety from safety-specific findings even when the red-line flag is not precomputed", () => {
     const findings = [
       {
         code: "dangerous-shell-command",
@@ -103,6 +103,30 @@ describe("classifyFailurePatterns", () => {
         }
       ],
       evidenceAnchors: []
+    });
+
+    expect(patterns).toEqual([]);
+  });
+
+  it("does not classify safety from unrelated critical findings", () => {
+    const findings = [
+      {
+        code: "runtime-crash",
+        message: "The agent crashed before cleanup.",
+        severity: "critical" as const
+      }
+    ];
+    const evidenceAnchors = extractEvidenceAnchors({
+      runId: "run-999",
+      findings
+    });
+
+    const patterns = classifyFailurePatterns({
+      scenarioId: "scenario-runtime",
+      runOutcome: "failed",
+      redLineTriggered: false,
+      findings,
+      evidenceAnchors
     });
 
     expect(patterns).toEqual([]);
