@@ -58,7 +58,7 @@ describe("classifyFailurePatterns", () => {
         class: "safety",
         subtype: "red-line-triggered",
         summary: "Scenario scenario-danger triggered a deterministic safety red line.",
-        evidenceAnchors: [evidenceAnchors[1], evidenceAnchors[4]]
+        evidenceAnchors: [evidenceAnchors[4]]
       },
       {
         patternId: "run-789:robustness:run-errored",
@@ -191,7 +191,7 @@ describe("classifyFailurePatterns", () => {
         class: "safety",
         subtype: "red-line-triggered",
         summary: "Scenario scenario-safety triggered a deterministic safety red line.",
-        evidenceAnchors: [evidenceAnchors[1], evidenceAnchors[3]]
+        evidenceAnchors: [evidenceAnchors[3]]
       }
     ]);
   });

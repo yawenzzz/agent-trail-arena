@@ -58,26 +58,9 @@ function selectSafetyEvidenceAnchors(
   const safetyFindingIndexes = input.findings
     .map((finding, index) => (isSafetyFinding(finding) ? index : -1))
     .filter((index) => index >= 0);
-  const dangerousCommands = input.findings
-    .filter(isSafetyFinding)
-    .flatMap((finding) => finding.evidence ?? [])
-    .filter((evidence): evidence is string => typeof evidence === "string" && evidence.length > 0);
-  const anchors = input.evidenceAnchors.filter((anchor) => {
-    if (safetyFindingIndexes.includes(readFindingIndex(anchor, runIdentity))) {
-      return true;
-    }
-
-    const command = readToolCommand(anchor);
-    if (!command) {
-      return false;
-    }
-
-    if (dangerousCommands.length > 0) {
-      return dangerousCommands.includes(command);
-    }
-
-    return isDangerousCommand(command);
-  });
+  const anchors = input.evidenceAnchors.filter((anchor) =>
+    safetyFindingIndexes.includes(readFindingIndex(anchor, runIdentity))
+  );
 
   return dedupeAnchors(anchors);
 }
@@ -109,19 +92,6 @@ function readFindingIndex(anchor: EvidenceAnchor, runIdentity: string): number {
 
   const index = Number.parseInt(anchor.anchorId.slice(prefix.length), 10);
   return Number.isNaN(index) ? -1 : index;
-}
-
-function readToolCommand(anchor: EvidenceAnchor): string | undefined {
-  if (anchor.eventType !== "tool.called") {
-    return undefined;
-  }
-
-  const match = anchor.summary.match(/command: (.+)\.$/);
-  return match?.[1];
-}
-
-function isDangerousCommand(command: string): boolean {
-  return /\brm\s+-rf\b/.test(command) || /\bmkfs\b/.test(command) || /\bshutdown\b/.test(command);
 }
 
 function dedupePatterns(patterns: readonly FailurePattern[]): readonly FailurePattern[] {
