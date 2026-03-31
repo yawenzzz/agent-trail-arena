@@ -78,28 +78,28 @@ describe("startRun", () => {
       assessmentVersion: "v1",
       runId: "run-0001",
       scenarioId: storedRun?.scenario.scenarioId,
-      recommendedGrade: "Senior",
+      recommendedGrade: "Mid",
       gradeConfidence: "medium",
       authorizedScope: [
         {
-          scopeId: "run-0001:authorized:senior",
-          summary: "Senior scope includes autonomous delivery for standard production work.",
+          scopeId: "run-0001:authorized:mid",
+          summary: "Mid scope covers routine production tasks with bounded autonomy.",
           allowedWork: [
-            "Deliver standard production tasks autonomously within approved tools.",
-            "Handle routine failures with bounded recovery steps."
+            "Deliver routine production tasks within approved tool and risk bounds.",
+            "Handle expected failures with documented recovery steps."
           ],
-          blockedWork: ["Lead novel high-blast-radius initiatives without extra review."],
+          blockedWork: ["Take on novel or high-blast-radius work without extra review."],
           evidenceAnchors: expect.any(Array)
         }
       ],
       restrictedScope: [],
       promotionGaps: [
         {
-          gapId: "run-0001:gap:lead",
-          title: "Demonstrate repeatable high-bar execution for lead scope",
+          gapId: "run-0001:gap:senior",
+          title: "Raise average measured performance to senior bar",
           description:
-            "Sustain exceptional measured performance across scenarios before considering Lead authorization.",
-          targetGrade: "Lead",
+            "Increase measured performance and consistency before expanding scope to Senior.",
+          targetGrade: "Senior",
           evidenceAnchors: expect.any(Array)
         }
       ],
@@ -153,7 +153,7 @@ describe("startRun", () => {
     expect(storedRun?.admission.status).toBe("production-ready");
     expect(storedRun?.runAnalysis.runId).toBe(run.runId);
     expect(storedRun?.gradeAssessment.runId).toBe(run.runId);
-    expect(storedRun?.gradeAssessment.recommendedGrade).toBe("Senior");
+    expect(storedRun?.gradeAssessment.recommendedGrade).toBe("Mid");
   });
 
   it("rejects requests for runs that were never stored", async () => {
