@@ -12,7 +12,7 @@ import type {
   ScenarioOutcome,
   SuggestedChange
 } from "@openclaw/domain";
-import type { ReplayLog } from "../../sandbox/src/replay-log.js";
+import type { ReplayLog } from "@openclaw/sandbox";
 import { classifyFailurePatterns } from "./failure-classifier.js";
 import { extractEvidenceAnchors } from "./evidence-extractor.js";
 
