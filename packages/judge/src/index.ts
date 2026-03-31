@@ -11,6 +11,9 @@ export type { ExtractEvidenceAnchorsInput } from "./evidence-extractor.js";
 export { classifyFailurePatterns } from "./failure-classifier.js";
 export type { ClassifyFailurePatternsInput } from "./failure-classifier.js";
 
+export { analyzeRun } from "./run-analysis.js";
+export type { AnalyzeRunInput } from "./run-analysis.js";
+
 export { deriveMeasuredProfile } from "./profile-aggregation.js";
 export type {
   AggregationInput,
