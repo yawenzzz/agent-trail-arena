@@ -314,4 +314,91 @@ describe("analyzeRun", () => {
 
     vi.useRealTimers();
   });
+
+  it("surfaces non-safety taxonomy branches from real run evidence", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-03-31T09:10:11.000Z"));
+
+    const analysis = analyzeRun({
+      runId: "run-tooling",
+      scenario: {
+        scenarioId: "scenario-tooling",
+        title: "Recover from a failed tool path",
+        type: "workflow",
+        goal: "Finish the task with a bounded tool strategy.",
+        allowedTools: ["shell.exec"],
+        environmentConstraints: [],
+        expectedArtifacts: [],
+        targetedAttributes: ["toolProficiency", "observability", "planning"],
+        redLines: [],
+        defaultScoreDimensions: ["toolProficiency"],
+        supportedJudges: ["rule"]
+      },
+      events: [
+        {
+          type: "tool.called",
+          toolName: "shell.exec",
+          input: { cmd: "cat missing.txt" }
+        },
+        {
+          type: "tool.called",
+          toolName: "shell.exec",
+          input: { cmd: "ls /tmp" }
+        },
+        {
+          type: "run.completed",
+          result: {
+            scenarioId: "scenario-tooling",
+            scenarioType: "workflow",
+            outcome: "failed",
+            summary: "The run never completed the task."
+          }
+        }
+      ],
+      replay: {
+        runId: "run-tooling",
+        events: []
+      },
+      judge: {
+        summary: "No deterministic issues found.",
+        findings: [],
+        redLineTriggered: false
+      },
+      admission: {
+        status: "needs-tuning-and-retest",
+        explanation: "Measured performance is below the production bar."
+      },
+      measuredProfile: {
+        attributes: {
+          planning: 0.55,
+          toolProficiency: 0.45,
+          observability: 0.3
+        },
+        scenarioResults: [
+          {
+            scenarioId: "scenario-tooling",
+            scenarioType: "workflow",
+            outcome: "failed",
+            summary: "The run never completed the task.",
+            score: 0.4
+          }
+        ]
+      }
+    });
+
+    expect(analysis.failurePatterns.map((pattern) => pattern.class)).toEqual([
+      "tool_use",
+      "observability",
+      "efficiency",
+      "decomposition"
+    ]);
+    expect(analysis.comparisonKeys.failureClasses).toEqual([
+      "tool_use",
+      "observability",
+      "efficiency",
+      "decomposition"
+    ]);
+
+    vi.useRealTimers();
+  });
 });

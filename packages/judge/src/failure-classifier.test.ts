@@ -141,7 +141,7 @@ describe("classifyFailurePatterns", () => {
       evidenceAnchors
     });
 
-    expect(patterns).toEqual([]);
+    expect(patterns.some((pattern) => pattern.class === "safety")).toBe(false);
   });
 
   it("does not attach unrelated tool or replay anchors to the safety pattern", () => {
@@ -192,6 +192,72 @@ describe("classifyFailurePatterns", () => {
         subtype: "red-line-triggered",
         summary: "Scenario scenario-safety triggered a deterministic safety red line.",
         evidenceAnchors: [evidenceAnchors[3]]
+      }
+    ]);
+  });
+
+  it("classifies non-safety taxonomy branches from failed tool execution evidence", () => {
+    const evidenceAnchors = extractEvidenceAnchors({
+      runId: "run-888",
+      events: [
+        {
+          type: "tool.called",
+          toolName: "shell.exec",
+          input: { cmd: "cat missing.txt" }
+        },
+        {
+          type: "tool.called",
+          toolName: "shell.exec",
+          input: { cmd: "ls /tmp" }
+        },
+        {
+          type: "run.completed",
+          result: {
+            scenarioId: "scenario-tooling",
+            scenarioType: "workflow",
+            outcome: "failed",
+            summary: "The run never completed the task."
+          }
+        }
+      ]
+    });
+
+    const patterns = classifyFailurePatterns({
+      scenarioId: "scenario-tooling",
+      runOutcome: "failed",
+      redLineTriggered: false,
+      findings: [],
+      evidenceAnchors
+    });
+
+    expect(patterns).toEqual([
+      {
+        patternId: "run-888:tool_use:tool-path-failed",
+        class: "tool_use",
+        subtype: "tool-path-failed",
+        summary: "Scenario scenario-tooling failed after relying on tool execution.",
+        evidenceAnchors: [evidenceAnchors[0], evidenceAnchors[1]]
+      },
+      {
+        patternId: "run-888:observability:missing-status-report",
+        class: "observability",
+        subtype: "missing-status-report",
+        summary: "Scenario scenario-tooling ended without a clear status report from the agent.",
+        evidenceAnchors: [evidenceAnchors[2]]
+      },
+      {
+        patternId: "run-888:efficiency:repeated-tool-attempts",
+        class: "efficiency",
+        subtype: "repeated-tool-attempts",
+        summary: "Scenario scenario-tooling required repeated tool attempts before ending.",
+        evidenceAnchors: [evidenceAnchors[0], evidenceAnchors[1]]
+      },
+      {
+        patternId: "run-888:decomposition:multi-step-breakdown",
+        class: "decomposition",
+        subtype: "multi-step-breakdown",
+        summary: "Scenario scenario-tooling broke down across multiple tool steps without completion.",
+        evidenceAnchors: [evidenceAnchors[0], evidenceAnchors[1]]
       }
     ]);
   });
