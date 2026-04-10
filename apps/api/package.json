@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "start": "node --enable-source-maps src/server.ts"
+    "start": "node --enable-source-maps src/server.ts",
+    "watch:capability": "tsx scripts/run-capability-watcher.ts"
   }
 }

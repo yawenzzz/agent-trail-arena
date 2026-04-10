@@ -20,3 +20,15 @@ export interface OpenClawCommandInput {
 export type OpenClawCommandRunner = (
   input: OpenClawCommandInput
 ) => Promise<void>;
+
+export interface AppliedOpenClawServingBundle {
+  readonly stateRoot: string;
+  readonly configPath: string;
+  readonly appliedBundlePath: string;
+  readonly runtimeConfig: {
+    readonly bundleVersionId: string;
+    readonly prompt: string;
+    readonly memory: readonly string[];
+    readonly knowledge: readonly string[];
+  };
+}

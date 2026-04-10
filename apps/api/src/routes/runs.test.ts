@@ -150,4 +150,91 @@ describe("run routes", () => {
 
     await app.close();
   });
+
+  it("creates a run through the provider-agent Codex runtime payload", async () => {
+    const app = buildApp({
+      createCodexRunner: () => async ({ runId, scenario }) => ({
+        events: [
+          {
+            type: "run.started",
+            runId,
+            scenarioId: scenario.scenarioId
+          },
+          {
+            type: "agent.summary",
+            text: "Codex handled the task."
+          },
+          {
+            type: "run.completed",
+            result: {
+              scenarioId: scenario.scenarioId,
+              scenarioType: scenario.type,
+              outcome: "passed",
+              summary: "Codex handled the task."
+            }
+          }
+        ],
+        replay: {
+          runId,
+          events: [
+            {
+              type: "run.started",
+              runId,
+              scenarioId: scenario.scenarioId
+            },
+            {
+              type: "agent.summary",
+              text: "Codex handled the task."
+            },
+            {
+              type: "run.completed",
+              result: {
+                scenarioId: scenario.scenarioId,
+                scenarioType: scenario.type,
+                outcome: "passed",
+                summary: "Codex handled the task."
+              }
+            }
+          ]
+        }
+      })
+    });
+
+    const createResponse = await app.inject({
+      method: "POST",
+      url: "/runs",
+      payload: {
+        agentVersion: "agent-v1",
+        build: {
+          robustness: "high",
+          safetyDiscipline: "high"
+        },
+        judgeConfigVersion: "judge-v1",
+        seed: "seed-123",
+        runtime: {
+          kind: "provider-agent",
+          provider: "codex",
+          workspaceRoot: "/tmp/project",
+          agentId: "trial-agent"
+        }
+      }
+    });
+
+    expect(createResponse.statusCode).toBe(201);
+    expect(createResponse.json().runId).toBe("run-0001");
+
+    const runResponse = await app.inject({
+      method: "GET",
+      url: "/runs/run-0001"
+    });
+
+    expect(runResponse.statusCode).toBe(200);
+    expect(runResponse.json().replay.events.map((event: { type: string }) => event.type)).toEqual([
+      "run.started",
+      "agent.summary",
+      "run.completed"
+    ]);
+
+    await app.close();
+  });
 });

@@ -45,3 +45,44 @@ export type { RunEvent } from "./events.js";
 export type { JudgeFinding, JudgeResult, JudgeSeverity, MeasuredProfile } from "./judging.js";
 
 export type { AdmissionResult, AdmissionStatus } from "./admission.js";
+
+export {
+  approvalRequiredChangeSurfaces,
+  autoPromotableChangeSurfaces,
+  candidateTouchesApprovalRequiredSurface,
+  changeSurfaces,
+  isAutoPromotableChangeSurface
+} from "./capability-improvement.js";
+export type {
+  ApprovalRequiredChangeSurface,
+  AutoPromotableChangeSurface,
+  BundleChange,
+  CandidateValidationResult,
+  ChangeSurface,
+  EvalArtifactExecutionPlan,
+  EvalArtifactExecutionResult,
+  EvalArtifactType,
+  EvalCaseArtifact,
+  GuardrailEvaluation,
+  ImprovementCandidate,
+  ImprovementCandidateStatus,
+  MetricComparison,
+  MetricSnapshot,
+  ProductionAgentMessage,
+  ProductionOutcome,
+  ProductionSignals,
+  ProductionTerminalOutcome,
+  ProductionToolCall,
+  ProductionToolCallStatus,
+  ProductionTraceInput,
+  ProductionTraceRecord,
+  ProductionUserCorrection,
+  ProductionLearningRecord,
+  PromotionDecision,
+  PromotionDecisionOutcome,
+  RollbackEvent,
+  RollbackTrigger,
+  ServingBundle,
+  ServingBundleStatus,
+  ServingBundleVersion
+} from "./capability-improvement.js";

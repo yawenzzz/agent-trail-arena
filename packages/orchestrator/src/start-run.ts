@@ -6,8 +6,10 @@ import {
   type ScenarioRegistry
 } from "../../registry/src/index.js";
 import {
+  runScenarioWithCodexAgent,
   runScenarioWithOpenClawAgent,
   runScenarioWithScriptedAgent,
+  type CodexRunner,
   type OpenClawGateway,
   type ScriptedAgentName
 } from "../../sandbox/src/index.js";
@@ -20,10 +22,18 @@ export type RunRuntimeTarget =
       readonly agentName: ScriptedAgentName;
     }
   | {
-      readonly kind: "openclaw";
+      readonly kind: "provider-agent";
+      readonly provider: "openclaw";
       readonly agentId: string;
       readonly workspaceRoot: string;
       readonly gateway: OpenClawGateway;
+    }
+  | {
+      readonly kind: "provider-agent";
+      readonly provider: "codex";
+      readonly agentId: string;
+      readonly workspaceRoot: string;
+      readonly runner: CodexRunner;
     };
 
 export interface StartRunInput {
@@ -60,13 +70,20 @@ export async function startRun(input: StartRunInput): Promise<StartedRun> {
           scenarioType: scenario.type,
           agentName: input.runtime.agentName
         })
-      : await runScenarioWithOpenClawAgent({
-          gateway: input.runtime.gateway,
-          runId,
-          scenario,
-          agentId: input.runtime.agentId,
-          workspaceRoot: input.runtime.workspaceRoot
-        });
+      : input.runtime.provider === "openclaw"
+        ? await runScenarioWithOpenClawAgent({
+            gateway: input.runtime.gateway,
+            runId,
+            scenario,
+            agentId: input.runtime.agentId,
+            workspaceRoot: input.runtime.workspaceRoot
+          })
+        : await input.runtime.runner({
+            runId,
+            scenario,
+            agentId: input.runtime.agentId,
+            workspaceRoot: input.runtime.workspaceRoot
+          });
   const scenarioResult = readCompletedScenarioResult(runnerOutput.events);
   const judge = judgeScenario({
     scenario,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createTrialProfile } from "../../domain/src/index.js";
 import { scenarioRegistry } from "../../registry/src/index.js";
-import type { OpenClawGateway } from "../../sandbox/src/index.js";
+import { createReplayLog, type CodexRunner, type OpenClawGateway } from "../../sandbox/src/index.js";
 import { createInMemoryRunStore } from "./run-store.js";
 import { startRun } from "./start-run.js";
 import { streamRun } from "./stream-run.js";
@@ -135,7 +135,8 @@ describe("startRun", () => {
       profile: fixtureProfile(),
       registry: scenarioRegistry,
       runtime: {
-        kind: "openclaw",
+        kind: "provider-agent",
+        provider: "openclaw",
         agentId: "agent-1",
         workspaceRoot: "/tmp/openclaw-workspace",
         gateway
@@ -154,6 +155,73 @@ describe("startRun", () => {
     expect(storedRun?.runAnalysis.runId).toBe(run.runId);
     expect(storedRun?.gradeAssessment.runId).toBe(run.runId);
     expect(storedRun?.gradeAssessment.recommendedGrade).toBe("Mid");
+  });
+
+  it("creates a run through the provider-agent codex runtime target", async () => {
+    const store = createInMemoryRunStore();
+    const runner: CodexRunner = async ({ runId, scenario }) => ({
+      events: [
+        {
+          type: "run.started",
+          runId,
+          scenarioId: scenario.scenarioId
+        },
+        {
+          type: "agent.summary",
+          text: "Codex completed the requested workflow."
+        },
+        {
+          type: "run.completed",
+          result: {
+            scenarioId: scenario.scenarioId,
+            scenarioType: scenario.type,
+            outcome: "passed",
+            summary: "Codex completed the requested workflow."
+          }
+        }
+      ],
+      replay: createReplayLog(runId, [
+        {
+          type: "run.started",
+          runId,
+          scenarioId: scenario.scenarioId
+        },
+        {
+          type: "agent.summary",
+          text: "Codex completed the requested workflow."
+        },
+        {
+          type: "run.completed",
+          result: {
+            scenarioId: scenario.scenarioId,
+            scenarioType: scenario.type,
+            outcome: "passed",
+            summary: "Codex completed the requested workflow."
+          }
+        }
+      ])
+    });
+
+    const run = await startRun({
+      store,
+      profile: fixtureProfile(),
+      registry: scenarioRegistry,
+      runtime: {
+        kind: "provider-agent",
+        provider: "codex",
+        agentId: "trial-agent",
+        workspaceRoot: "/tmp/project",
+        runner
+      }
+    });
+
+    const storedRun = store.getRun(run.runId);
+    expect(storedRun?.replay.events.map((event) => event.type)).toEqual([
+      "run.started",
+      "agent.summary",
+      "run.completed"
+    ]);
+    expect(storedRun?.admission.status).toBe("production-ready");
   });
 
   it("rejects requests for runs that were never stored", async () => {

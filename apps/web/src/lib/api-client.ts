@@ -1,12 +1,15 @@
 import type {
   AdmissionResult,
+  AgentDescriptor,
   DeclaredBuild,
   JudgeResult,
   MeasuredProfile,
   OpenClawAgentDescriptor,
-  OpenClawRuntimeTarget,
+  ProviderAgentRuntimeTarget,
+  ResolvedAgentWorkspace,
   ResolvedOpenClawWorkspace,
   RunEvent,
+  RunRequestRuntime,
   ScenarioDefinition
 } from "./trial-types";
 
@@ -28,7 +31,7 @@ export interface CreateRunRequest {
   readonly build: DeclaredBuild;
   readonly judgeConfigVersion: string;
   readonly seed: string;
-  readonly runtime: OpenClawRuntimeTarget;
+  readonly runtime: RunRequestRuntime;
 }
 
 export interface CreatedRun {
@@ -50,11 +53,15 @@ export interface ReplayResponse {
   readonly events: readonly RunEvent[];
 }
 
-export async function resolveOpenClawWorkspace(input: {
+export async function resolveAgents(input: {
+  readonly provider: "openclaw";
   readonly stateRoot?: string;
   readonly configPath?: string;
-}): Promise<ResolvedOpenClawWorkspace> {
-  const response = await fetch(`${API_BASE_URL}/openclaw/resolve`, {
+} | {
+  readonly provider: "codex";
+  readonly workspaceRoot: string;
+}): Promise<ResolvedAgentWorkspace> {
+  const response = await fetch(`${API_BASE_URL}/agents/resolve`, {
     method: "POST",
     headers: {
       "content-type": "application/json"
@@ -65,14 +72,51 @@ export async function resolveOpenClawWorkspace(input: {
 
   if (!response.ok) {
     throw new Error(
-      await readErrorMessage(
-        response,
-        `Failed to resolve OpenClaw state: ${response.status}`
-      )
+      await readErrorMessage(response, `Failed to resolve agents: ${response.status}`)
     );
   }
 
   return response.json();
+}
+
+export async function resolveOpenClawWorkspace(input: {
+  readonly stateRoot?: string;
+  readonly configPath?: string;
+}): Promise<ResolvedOpenClawWorkspace> {
+  return resolveAgents({
+    provider: "openclaw",
+    stateRoot: input.stateRoot,
+    configPath: input.configPath
+  }) as Promise<ResolvedOpenClawWorkspace>;
+}
+
+export async function provisionAgent(input: {
+  readonly provider: "openclaw";
+  readonly stateRoot?: string;
+  readonly configPath?: string;
+  readonly agentName: string;
+} | {
+  readonly provider: "codex";
+  readonly workspaceRoot: string;
+  readonly agentName: string;
+}): Promise<AgentDescriptor> {
+  const response = await fetch(`${API_BASE_URL}/agents/provision`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(input),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      await readErrorMessage(response, `Failed to provision agent: ${response.status}`)
+    );
+  }
+
+  const body = (await response.json()) as { agent: AgentDescriptor };
+  return body.agent;
 }
 
 export async function provisionOpenClawAgent(input: {
@@ -80,26 +124,12 @@ export async function provisionOpenClawAgent(input: {
   readonly configPath?: string;
   readonly agentName: string;
 }): Promise<OpenClawAgentDescriptor> {
-  const response = await fetch(`${API_BASE_URL}/openclaw/provision`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(input),
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      await readErrorMessage(
-        response,
-        `Failed to provision OpenClaw agent: ${response.status}`
-      )
-    );
-  }
-
-  const body = (await response.json()) as { agent: OpenClawAgentDescriptor };
-  return body.agent;
+  return provisionAgent({
+    provider: "openclaw",
+    stateRoot: input.stateRoot,
+    configPath: input.configPath,
+    agentName: input.agentName
+  }) as Promise<OpenClawAgentDescriptor>;
 }
 
 export async function createRun(input: CreateRunRequest): Promise<CreatedRun> {

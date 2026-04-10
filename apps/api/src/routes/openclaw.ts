@@ -1,11 +1,19 @@
 import type { FastifyInstance } from "fastify";
 import {
+  applyOpenClawServingBundle,
   createOpenClawAgent,
   executeOpenClawCommand,
+  readAppliedOpenClawServingBundle,
+  resolveOpenClawServingRuntimeConfig,
   resolveOpenClawWorkspace,
   type CreateOpenClawAgentInput,
   type ResolvedOpenClawWorkspace
 } from "../../../../packages/sandbox/src/index.js";
+import {
+  resolveServingBundle,
+  resolveServingRuntimeConfig,
+  type CapabilityImprovementStore
+} from "../../../../packages/orchestrator/src/index.js";
 
 interface ResolveWorkspaceBody {
   readonly stateRoot?: string;
@@ -17,6 +25,10 @@ interface ProvisionAgentBody extends ResolveWorkspaceBody {
   readonly agentName: string;
 }
 
+interface ApplyServingBundleBody extends ResolveWorkspaceBody {
+  readonly bundleVersionId?: string;
+}
+
 interface OpenClawRouteOptions {
   readonly resolveWorkspace?: (
     input: ResolveWorkspaceBody
@@ -24,6 +36,7 @@ interface OpenClawRouteOptions {
   readonly provisionAgent?: (
     input: CreateOpenClawAgentInput
   ) => Promise<Awaited<ReturnType<typeof createOpenClawAgent>>>;
+  readonly capabilityStore?: CapabilityImprovementStore;
 }
 
 function replyWithRouteError(reply: { code: (statusCode: number) => unknown }, error: unknown) {
@@ -107,6 +120,81 @@ export function registerOpenClawRoutes(
       reply.code(201);
       return { agent };
     } catch (error) {
+      return replyWithRouteError(reply, error);
+    }
+  });
+
+  app.post("/openclaw/serving-bundle/apply", async (request, reply) => {
+    if (!options.capabilityStore) {
+      reply.code(501);
+      return {
+        message: "Capability store is not configured for serving bundle application."
+      };
+    }
+
+    const body = request.body as ApplyServingBundleBody;
+    const resolveInput = toResolveInput(body);
+
+    try {
+      const bundle = resolveServingBundle(options.capabilityStore, body.bundleVersionId);
+      const applied = await applyOpenClawServingBundle({
+        stateRoot: resolveInput.stateRoot,
+        configPath: resolveInput.configPath,
+        runtimeConfig: resolveServingRuntimeConfig(bundle)
+      });
+
+      return { applied };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.startsWith("Unknown serving bundle:")
+      ) {
+        reply.code(404);
+        return {
+          message: error.message
+        };
+      }
+
+      return replyWithRouteError(reply, error);
+    }
+  });
+
+  app.get("/openclaw/serving-bundle/applied", async (request, reply) => {
+    const query = request.query as ResolveWorkspaceBody;
+    const resolveInput = toResolveInput(query);
+
+    try {
+      return {
+        applied: await readAppliedOpenClawServingBundle(resolveInput)
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        reply.code(404);
+        return {
+          message: "No applied serving bundle was found for the requested OpenClaw state root."
+        };
+      }
+
+      return replyWithRouteError(reply, error);
+    }
+  });
+
+  app.get("/openclaw/serving-bundle/runtime-config", async (request, reply) => {
+    const query = request.query as ResolveWorkspaceBody;
+    const resolveInput = toResolveInput(query);
+
+    try {
+      return {
+        runtimeConfig: await resolveOpenClawServingRuntimeConfig(resolveInput)
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        reply.code(404);
+        return {
+          message: "No applied serving bundle was found for the requested OpenClaw state root."
+        };
+      }
+
       return replyWithRouteError(reply, error);
     }
   });
