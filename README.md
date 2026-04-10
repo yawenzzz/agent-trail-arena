@@ -1,6 +1,6 @@
 # OpenClaw Trial Arena
 
-Monorepo for a local trial harness that can benchmark an OpenClaw agent, show the run in an arena view, and replay the captured transcript.
+Monorepo for a local trial harness that can benchmark provider-backed agents, show the run in an arena view, and replay the captured transcript.
 
 ## Packages
 
@@ -8,7 +8,7 @@ Monorepo for a local trial harness that can benchmark an OpenClaw agent, show th
 - `apps/api`: Fastify API for workspace resolution, agent provisioning, runs, replay, and SSE export
 - `packages/domain`: shared trial, scenario, judge, and event types
 - `packages/registry`: benchmark scenario registry and selection logic
-- `packages/sandbox`: scripted runner plus OpenClaw runtime integration
+- `packages/sandbox`: scripted runner plus provider-specific runtime integrations (OpenClaw, Codex)
 - `packages/judge`: rule-based judge and admission output
 - `packages/orchestrator`: run lifecycle, store, stream, and finalize logic
 
@@ -58,6 +58,204 @@ Expected response:
 ```json
 {"scaffold":false,"status":"ok"}
 ```
+
+## How To Test A Local Provider Agent
+
+Trial Arena now supports choosing a runtime provider in `/builds`:
+
+- `OpenClaw` — discover and provision local OpenClaw agents from the OpenClaw state root
+- `Codex` — discover and provision Trial Arena-managed Codex presets inside the selected workspace
+
+### Codex notes
+
+- Codex agents are stored in the workspace-local metadata file:
+
+```text
+<workspaceRoot>/.trial-arena/codex-agents.json
+```
+
+- Creating a Codex agent in the UI creates a runnable preset record in that file.
+- Running a Codex trial uses the local `codex exec` CLI from the selected workspace root.
+
+### API smoke setup
+
+For manual API testing, it is useful to start the API with a fresh capability store:
+
+```bash
+export OPENCLAW_CAPABILITY_STORE_PATH=/tmp/openclaw-capability-store.json
+rm -f "$OPENCLAW_CAPABILITY_STORE_PATH"
+pnpm --dir apps/api exec node --import tsx src/server.ts
+```
+
+Then verify:
+
+```bash
+curl http://127.0.0.1:3001/health
+```
+
+### Manual Codex provider flow
+
+#### 1. Prepare a workspace
+
+```bash
+mkdir -p /tmp/trial-arena-codex-demo
+codex --version
+```
+
+#### 2. Resolve Codex agents in that workspace
+
+```bash
+curl -X POST http://127.0.0.1:3001/agents/resolve \
+  -H 'content-type: application/json' \
+  -d '{
+    "provider": "codex",
+    "workspaceRoot": "/tmp/trial-arena-codex-demo"
+  }'
+```
+
+Expected: `provider` is `codex`; `agents` may be empty on first run.
+
+#### 3. Provision a Codex agent preset
+
+```bash
+curl -X POST http://127.0.0.1:3001/agents/provision \
+  -H 'content-type: application/json' \
+  -d '{
+    "provider": "codex",
+    "workspaceRoot": "/tmp/trial-arena-codex-demo",
+    "agentName": "Trial Agent"
+  }'
+```
+
+Expected:
+- response body contains `agent.provider = "codex"`
+- `agent.agentId = "trial-agent"`
+- the workspace now contains:
+
+```text
+/tmp/trial-arena-codex-demo/.trial-arena/codex-agents.json
+```
+
+#### 4. Resolve again to verify persistence
+
+```bash
+curl -X POST http://127.0.0.1:3001/agents/resolve \
+  -H 'content-type: application/json' \
+  -d '{
+    "provider": "codex",
+    "workspaceRoot": "/tmp/trial-arena-codex-demo"
+  }'
+```
+
+Expected: `agents` now includes `trial-agent`.
+
+#### 5. Run a Codex-backed trial
+
+```bash
+curl -X POST http://127.0.0.1:3001/runs \
+  -H 'content-type: application/json' \
+  -d '{
+    "agentVersion": "agent-v1",
+    "build": {
+      "robustness": "high",
+      "safetyDiscipline": "high"
+    },
+    "judgeConfigVersion": "judge-v1",
+    "seed": "seed-123",
+    "runtime": {
+      "kind": "provider-agent",
+      "provider": "codex",
+      "workspaceRoot": "/tmp/trial-arena-codex-demo",
+      "agentId": "trial-agent"
+    }
+  }'
+```
+
+Then inspect:
+
+```bash
+curl http://127.0.0.1:3001/runs/run-0001
+curl http://127.0.0.1:3001/runs/run-0001/replay
+curl http://127.0.0.1:3001/runs/run-0001/events
+```
+
+Expected:
+- replay/event output starts with `run.started`
+- exactly one `run.completed` exists
+
+### Manual OpenClaw provider flow
+
+#### 1. Resolve through the new unified route
+
+```bash
+curl -X POST http://127.0.0.1:3001/agents/resolve \
+  -H 'content-type: application/json' \
+  -d '{
+    "provider": "openclaw",
+    "stateRoot": "/tmp/openclaw-state"
+  }'
+```
+
+#### 2. Verify legacy compatibility routes still work
+
+```bash
+curl -X POST http://127.0.0.1:3001/openclaw/resolve \
+  -H 'content-type: application/json' \
+  -d '{
+    "stateRoot": "/tmp/openclaw-state"
+  }'
+```
+
+```bash
+curl -X POST http://127.0.0.1:3001/openclaw/provision \
+  -H 'content-type: application/json' \
+  -d '{
+    "stateRoot": "/tmp/openclaw-state",
+    "agentName": "fresh-agent"
+  }'
+```
+
+#### 3. Verify legacy OpenClaw runtime payloads still run
+
+```bash
+curl -X POST http://127.0.0.1:3001/runs \
+  -H 'content-type: application/json' \
+  -d '{
+    "agentVersion": "agent-v1",
+    "build": {
+      "robustness": "high",
+      "safetyDiscipline": "high"
+    },
+    "judgeConfigVersion": "judge-v1",
+    "seed": "seed-123",
+    "runtime": {
+      "kind": "openclaw",
+      "workspaceRoot": "/tmp/openclaw-workspace",
+      "agentId": "agent-1"
+    }
+  }'
+```
+
+### Manual UI checks
+
+Start the web app:
+
+```bash
+OPENCLAW_API_BASE_URL=http://127.0.0.1:3001 pnpm --dir apps/web dev --hostname 127.0.0.1 --port 3000
+```
+
+Open:
+
+```text
+http://127.0.0.1:3000/builds
+```
+
+Verify:
+- the page shows a `Runtime provider` selector
+- switching between `OpenClaw` and `Codex` clears incompatible provider state
+- Codex mode shows `Workspace root`
+- OpenClaw mode still shows `OpenClaw State`
+- both providers can resolve/provision/select agents and start a trial
 
 ## How To Test A Local OpenClaw Agent
 

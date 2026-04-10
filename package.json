@@ -5,6 +5,7 @@
   "scripts": {
     "dev:web": "pnpm --filter @openclaw/web dev",
     "dev:api": "pnpm --filter @openclaw/api dev",
+    "watch:capability": "pnpm --filter @openclaw/api watch:capability",
     "test": "pnpm vitest run",
     "test:e2e": "playwright test"
   },

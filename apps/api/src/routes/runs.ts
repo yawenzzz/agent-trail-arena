@@ -6,7 +6,11 @@ import {
   type RunStore
 } from "../../../../packages/orchestrator/src/index.js";
 import { scenarioRegistry } from "../../../../packages/registry/src/index.js";
-import type { ScriptedAgentName, OpenClawGateway } from "../../../../packages/sandbox/src/index.js";
+import type {
+  CodexRunner,
+  ScriptedAgentName,
+  OpenClawGateway
+} from "../../../../packages/sandbox/src/index.js";
 import type { OpenClawConfig } from "../config/openclaw.js";
 import { formatSseEvent } from "../lib/sse.js";
 
@@ -14,6 +18,7 @@ interface RunRouteOptions {
   readonly store: RunStore;
   readonly openClawConfig: OpenClawConfig;
   readonly createOpenClawGateway: (config: OpenClawConfig) => OpenClawGateway;
+  readonly createCodexRunner: () => CodexRunner;
 }
 
 type CreateRunRuntime =
@@ -23,6 +28,12 @@ type CreateRunRuntime =
     }
   | {
       readonly kind: "openclaw";
+      readonly workspaceRoot: string;
+      readonly agentId: string;
+    }
+  | {
+      readonly kind: "provider-agent";
+      readonly provider: "openclaw" | "codex";
       readonly workspaceRoot: string;
       readonly agentId: string;
     };
@@ -36,8 +47,29 @@ interface CreateRunBody {
   readonly agentName?: ScriptedAgentName;
 }
 
-function readRuntime(body: CreateRunBody): CreateRunRuntime {
+function readRuntime(
+  body: CreateRunBody
+):
+  | {
+      readonly kind: "scripted";
+      readonly agentName: ScriptedAgentName;
+    }
+  | {
+      readonly kind: "provider-agent";
+      readonly provider: "openclaw" | "codex";
+      readonly workspaceRoot: string;
+      readonly agentId: string;
+    } {
   if (body.runtime) {
+    if (body.runtime.kind === "openclaw") {
+      return {
+        kind: "provider-agent",
+        provider: "openclaw",
+        workspaceRoot: body.runtime.workspaceRoot,
+        agentId: body.runtime.agentId
+      };
+    }
+
     return body.runtime;
   }
 
@@ -62,17 +94,29 @@ export function registerRunRoutes(app: FastifyInstance, options: RunRouteOptions
       judgeConfigVersion: body.judgeConfigVersion,
       seed: body.seed
     });
+    const runtimeTarget =
+      runtime.kind === "scripted"
+        ? runtime
+        : runtime.provider === "openclaw"
+          ? {
+              kind: "provider-agent" as const,
+              provider: "openclaw" as const,
+              workspaceRoot: runtime.workspaceRoot,
+              agentId: runtime.agentId,
+              gateway: options.createOpenClawGateway(options.openClawConfig)
+            }
+          : {
+              kind: "provider-agent" as const,
+              provider: "codex" as const,
+              workspaceRoot: runtime.workspaceRoot,
+              agentId: runtime.agentId,
+              runner: options.createCodexRunner()
+            };
     const run = await startRun({
       store: options.store,
       profile,
       registry: scenarioRegistry,
-      runtime:
-        runtime.kind === "scripted"
-          ? runtime
-          : {
-              ...runtime,
-              gateway: options.createOpenClawGateway(options.openClawConfig)
-            }
+      runtime: runtimeTarget
     });
 
     reply.code(201);

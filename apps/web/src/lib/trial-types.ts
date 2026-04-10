@@ -92,8 +92,50 @@ export interface ResolvedOpenClawWorkspace {
   readonly agents: readonly OpenClawAgentDescriptor[];
 }
 
+export type AgentProvider = "openclaw" | "codex";
+
+export interface CodexAgentDescriptor {
+  readonly provider: "codex";
+  readonly agentId: string;
+  readonly agentName: string;
+  readonly workspaceRoot: string;
+  readonly definitionPath?: string;
+}
+
+export interface OpenClawProviderAgentDescriptor extends OpenClawAgentDescriptor {
+  readonly provider: "openclaw";
+}
+
+export type AgentDescriptor = OpenClawProviderAgentDescriptor | CodexAgentDescriptor;
+
+export interface ResolvedCodexWorkspace {
+  readonly provider: "codex";
+  readonly workspaceRoot: string;
+  readonly agents: readonly CodexAgentDescriptor[];
+}
+
+export interface ResolvedOpenClawProviderWorkspace extends ResolvedOpenClawWorkspace {
+  readonly provider: "openclaw";
+  readonly agents: readonly OpenClawProviderAgentDescriptor[];
+}
+
+export type ResolvedAgentWorkspace =
+  | ResolvedOpenClawProviderWorkspace
+  | ResolvedCodexWorkspace;
+
 export interface OpenClawRuntimeTarget {
   readonly kind: "openclaw";
   readonly workspaceRoot: string;
   readonly agentId: string;
 }
+
+export interface ProviderAgentRuntimeTarget {
+  readonly kind: "provider-agent";
+  readonly provider: AgentProvider;
+  readonly workspaceRoot: string;
+  readonly agentId: string;
+}
+
+export type RunRequestRuntime =
+  | { readonly kind: "scripted"; readonly agentName: string }
+  | ProviderAgentRuntimeTarget;
